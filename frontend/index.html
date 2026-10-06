@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BERTAUT — Beranda Aplikasi & Tautan Terpadu</title>
+<meta name="description" content="BERTAUT (Beranda Aplikasi & Tautan Terpadu) — pintu masuk terpadu ke seluruh aplikasi kerja Anda." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,ital,wght@9..144,0,300;9..144,0,500;9..144,0,600;9..144,1,400&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./styles.css" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 28 9v14L16 30 4 23V9z' fill='none' stroke='%23C9A86A' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23C9A86A'/%3E%3C/svg%3E" />
+</head>
+<body>
+<canvas id="dust" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="cursor-dot" aria-hidden="true"></div>
+<div class="cursor-ring" aria-hidden="true"></div>
+
+<!-- PRELOADER -->
+<div id="preloader" role="status" aria-label="Memuat portal">
+  <div class="pre-inner">
+    <div class="pre-mark">◈</div>
+    <div class="pre-word">BERTAUT</div>
+    <div class="pre-sub">beranda aplikasi &amp; tautan terpadu</div>
+    <div class="pre-count"><span id="preNum">00</span><em> / 100</em></div>
+    <div class="pre-bar"><i id="preBar"></i></div>
+  </div>
+</div>
+
+<!-- ============ LOGIN ============ -->
+<main id="loginView" class="login hidden-init">
+  <aside class="login-left">
+    <div class="brand-row">
+      <span class="sigil">◈</span>
+      <span class="brand-name">BERTAUT <em>beranda aplikasi &amp; tautan terpadu</em></span>
+    </div>
+    <h1 class="login-title">Satu pintu.<br /><span class="italic-gold">Segala urusan</span> kerja terhampar.</h1>
+    <p class="login-desc">Etalase pribadi untuk MyASN, SIASN, e-Kinerja, Srikandi, dan seluruh aplikasi dinas Anda — tersusun rapi bagai koleksi pusaka, dibuka dengan satu kunci.</p>
+    <ul class="login-points">
+      <li><b>01</b> Kunci lokal — data tersimpan di perangkat ini saja</li>
+      <li><b>02</b> Buka dalam sekejap — tekan <kbd>Ctrl</kbd> + <kbd>K</kbd> untuk melompat</li>
+      <li><b>03</b> Rapi &amp; abadi — tambah, sematkan, dan ekspor kapan saja</li>
+    </ul>
+    <div class="login-meta">
+      <div><span id="loginClock">--:--:--</span><label>WIB · <span id="loginDate">—</span></label></div>
+      <div class="login-seal">ARSIP PRIBADI<br />TERPERCAYA · v1.1</div>
+    </div>
+    <div class="kawung" aria-hidden="true"></div>
+  </aside>
+  <section class="login-right">
+    <div class="login-card" id="loginCard">
+      <p class="eyebrow">Akses terbatas · pemilik portal</p>
+      <h2>Masuki ruang kerja</h2>
+      <p class="muted">Masukkan nama pengguna dan kata sandi. Kredensial bawaan dapat diganti di Pengaturan.</p>
+      <form id="loginForm" autocomplete="off">
+        <label class="field"><span>Nama pengguna</span>
+          <input id="loginUser" name="username" type="text" placeholder="cth. admin" required minlength="3" maxlength="32" />
+        </label>
+        <label class="field"><span>Kata sandi</span>
+          <span class="pass-wrap">
+            <input id="loginPass" name="password" type="password" placeholder="••••••••" required minlength="6" maxlength="64" />
+            <button type="button" id="togglePass" aria-label="Tampilkan kata sandi">◎</button>
+          </span>
+        </label>
+        <p class="form-err" id="loginErr" role="alert" hidden></p>
+        <button class="btn-gold" type="submit"><span>Buka Portal</span><i>→</i></button>
+        <p class="hint">Bawaan: <code>admin</code> / <code>bertaut123</code> — segera ganti setelah masuk.</p>
+      </form>
+      <div class="back-row server-only"><button id="backBtn" type="button">← Kembali ke etalase publik</button></div>
+      <div class="login-foot">
+        <span>Data hanya di browser ini · tanpa server</span>
+        <button id="resetAllLink" type="button">Lupa kunci? Atur ulang</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ APP ============ -->
+<div id="appView" hidden>
+  <div class="ticker" aria-hidden="true"><div class="ticker-track" id="tickerTrack">
+    <span>PORTAL KERJA PRIBADI</span><i>✦</i><span>BERANDA APLIKASI &amp; TAUTAN TERPADU</span><i>✦</i><span>MYASN · SIASN · E-KINERJA · SRIKANDI</span><i>✦</i>
+    <span>TEKAN CTRL + K UNTUK LOMPAT CEPAT</span><i>✦</i><span>DATA TERSIMPAN LOKAL DI PERANGKAT INI</span><i>✦</i>
+  </div></div>
+
+  <header class="topbar">
+    <div class="brand-row small">
+      <span class="sigil">◈</span>
+      <span class="brand-name">BERTAUT</span>
+      <span class="ver">v1.1</span>
+    </div>
+    <div class="top-search">
+      <span aria-hidden="true">⌕</span>
+      <input id="q" type="search" placeholder="Cari aplikasi… ( / atau Ctrl+K )" aria-label="Cari aplikasi" />
+    </div>
+    <div class="top-right">
+      <div class="clock"><b id="clock">--:--</b><span id="dateLine">—</span></div>
+      <button id="loginNavBtn" type="button">Masuk</button>
+      <button class="btn-ghost admin-only" id="manageBtn" aria-pressed="false">Kelola</button>
+      <button class="btn-ghost admin-only" id="addBtn">＋ Tambah</button>
+      <button class="btn-ghost icon admin-only" id="settingsBtn" aria-label="Pengaturan">⚙</button>
+      <button class="avatar admin-only" id="logoutBtn" title="Keluar">A</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-left">
+      <p class="eyebrow">Selamat <span id="greet">datang</span>, <b id="whoName">Arunika</b> — <span id="todayLine">—</span></p>
+      <h2 class="hero-title">Pilih gerbang<br /><em>tugas Anda</em> hari ini.</h2>
+      <div class="stats">
+        <div class="stat"><b id="statTotal">0</b><span>gerbang terdaftar</span></div>
+        <div class="stat"><b id="statFav">0</b><span>disematkan</span></div>
+        <div class="stat"><b id="statVisit">0</b><span>kunjungan tercatat</span></div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="dial">
+        <div class="dial-ring"></div>
+        <div class="dial-core"><b id="dialNum">00</b><span>siap dibuka</span></div>
+      </div>
+      <p class="hero-note">Setiap kartu adalah pintu.<br />Arahkan kursor — rasakan bobotnya.<br />Klik — melesat ke tujuannya.</p>
+    </div>
+  </section>
+
+  <nav class="filters" aria-label="Saring kategori">
+    <div class="chips" id="chips"></div>
+    <div class="sort">
+      <label>Urut <select id="sortSel"><option value="manual">Susunan saya</option><option value="az">A – Z</option><option value="recent">Terakhir dibuka</option></select></label>
+    </div>
+  </nav>
+
+  <main class="grid" id="grid" aria-live="polite"></main>
+
+  <div class="empty" id="emptyState" hidden>
+    <p class="empty-mark">◇</p>
+    <h3>Ruang ini masih sunyi</h3>
+    <p>Belum ada gerbang yang cocok. Tambahkan aplikasi dinas pertama Anda.</p>
+    <button class="btn-gold" id="emptyAdd"><span>Tambah aplikasi</span><i>＋</i></button>
+  </div>
+
+  <footer class="foot">
+    <span>◈ BERTAUT — dirawat oleh pemiliknya · <span id="footCount"></span></span>
+    <span class="mono">TEKAN <kbd>?</kbd> UNTUK PINTASAN</span>
+  </footer>
+</div>
+
+<!-- MODAL FORM -->
+<div class="scrim" id="scrim" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head"><p class="eyebrow" id="modalKicker">Gerbang baru</p><h3 id="modalTitle">Tambah aplikasi</h3>
+      <button class="x" id="modalClose" aria-label="Tutup">✕</button></div>
+    <form id="appForm">
+      <input type="hidden" id="fId" />
+      <label class="field"><span>Nama aplikasi *</span><input id="fName" required maxlength="48" placeholder="cth. MyASN BKN" /></label>
+      <label class="field"><span>Tautan (URL) *</span><input id="fUrl" required inputmode="url" maxlength="300" placeholder="https://myasn.bkn.go.id" /></label>
+      <label class="field"><span>Deskripsi singkat</span><input id="fDesc" maxlength="120" placeholder="cth. Layanan mandiri ASN — profil, riwayat, SK" /></label>
+      <div class="two">
+        <label class="field"><span>Kategori</span><select id="fCat"></select></label>
+        <label class="field"><span>Aksen</span><select id="fAccent"><option value="gold">Emas Pusaka</option><option value="teal">Teal Samudra</option><option value="clay">Tanah Liat</option><option value="sage">Daun Sage</option><option value="ink">Tinta Malam</option></select></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Simbol</span><select id="fGlyph"><option value="◈">◈ Belah ketupat</option><option value="⬢">⬢ Sarang</option><option value="◎">◎ Cincin</option><option value="▲">▲ Puncak</option><option value="✦">✦ Bintang</option><option value="▣">▣ Jendela</option></select></label>
+        <label class="check"><input type="checkbox" id="fPin" /><span>Sematkan di baris depan</span></label>
+      </div>
+      <p class="form-err" id="formErr" role="alert" hidden></p>
+      <div class="modal-actions"><button type="button" class="btn-ghost" id="modalCancel">Batal</button><button class="btn-gold" type="submit"><span>Simpan gerbang</span><i>✓</i></button></div>
+    </form>
+  </div>
+</div>
+
+<!-- SETTINGS DRAWER -->
+<aside class="drawer" id="drawer" hidden aria-label="Pengaturan">
+  <div class="drawer-head"><div><p class="eyebrow">Perawatan portal</p><h3>Pengaturan</h3></div><button class="x" id="drawerClose" aria-label="Tutup pengaturan">✕</button></div>
+  <section><h4>Ganti kunci masuk</h4>
+    <label class="field"><span>Nama pengguna baru</span><input id="sUser" maxlength="32" /></label>
+    <label class="field"><span>Kata sandi baru (min. 6)</span><input id="sPass" type="password" maxlength="64" placeholder="••••••••" /></label>
+    <button class="btn-ghost" id="saveCreds">Simpan kunci</button>
+  </section>
+  <section><h4>Arsip data</h4>
+    <div class="row"><button class="btn-ghost" id="exportBtn">⭳ Ekspor JSON</button><button class="btn-ghost" id="importBtn">⭱ Impor JSON</button><input type="file" id="importFile" accept="application/json" hidden /></div>
+    <button class="btn-danger" id="wipeBtn">Kembalikan ke bawaan</button>
+    <p class="muted small">Ekspor berkala sebagai cadangan. Impor menimpa seluruh susunan saat ini.</p>
+  </section>
+  <section><h4>Tentang</h4><p class="muted small">BERTAUT v1.1 — Beranda Aplikasi &amp; Tautan Terpadu. Etalase statis tanpa server. Kredensial &amp; daftar aplikasi tersimpan di <code>localStorage</code> peramban ini. Bukan sistem autentikasi produksi; jangan simpan rahasia dinas di sini.</p></section>
+</aside>
+
+<!-- COMMAND PALETTE -->
+<div class="scrim" id="palScrim" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Lompat cepat">
+    <input id="palInput" placeholder="Ketik nama aplikasi… lalu Enter untuk membuka" aria-label="Lompat cepat" />
+    <div id="palList"></div>
+    <p class="pal-hint"><kbd>↑</kbd><kbd>↓</kbd> pilih · <kbd>↵</kbd> buka · <kbd>esc</kbd> tutup</p>
+  </div>
+</div>
+
+<div class="shortcuts" id="shortcuts" hidden>
+  <div><h4>Pintasan</h4><button class="x" id="shortClose" aria-label="Tutup">✕</button></div>
+  <dl><dt><kbd>/</kbd> / <kbd>Ctrl K</kbd></dt><dd>Fokus pencarian / lompat cepat</dd><dt><kbd>n</kbd></dt><dd>Tambah aplikasi</dd><dt><kbd>e</kbd></dt><dd>Mode kelola</dd><dt><kbd>Esc</kbd></dt><dd>Tutup dialog</dd></dl>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<script src="./app.js" defer></script>
+</body>
+</html>
