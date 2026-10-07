@@ -173,16 +173,10 @@ export function ChainOverlay({
         .to(".chain-aura", { opacity: 0, duration: 0.5 }, 1.7)
         .to(".chain-ring", { opacity: 0, scale: 1.7, duration: 0.5, ease: "power2.in" }, 1.62)
         .to(".chain-veil", { opacity: 0, duration: 0.32 }, 1.85);
-      const card = el.closest(".card");
-      if (card) {
-        // Denyut skala (bukan filter: filter adalah string tunggal yang
-        // diperebutkan tween reveal dan bisa macet blur permanen).
-        tl.fromTo(card, { scale: 1 }, { scale: 1.035, duration: 0.2, ease: "power2.out" }, 1.85).to(
-          card,
-          { scale: 1, duration: 0.5, ease: "elastic.out(1,.5)" },
-          2.05
-        );
-      }
+      // Catatan: JANGAN animasikan kartu di sini (scale/translate/filter).
+      // Matriks transform kartu milik tween reveal + tilt; menyentuhnya dari
+      // timeline ini terbukti meninggalkan sisa translate (kartu turun).
+      // Kilat + ledakan bunga api sudah cukup sebagai klimaks.
     }, el);
     return () => ctx.revert();
   }, [breaking]);
