@@ -16,19 +16,20 @@ export type AppRow = {
   accent: string;
   glyph: string;
   pin: number;
+  sso: number;
   visits: number;
   lastOpen: string | null;
 };
 
 const SEED = [
-  { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: 1 },
-  { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: 1 },
-  { id: "ekin", name: "e-Kinerja BKN", url: "https://ekinerja.bkn.go.id", desc: "Perencanaan & penilaian kinerja harian hingga SKP tahunan.", cat: "Kinerja", accent: "clay", glyph: "▲", pin: 1 },
-  { id: "srikandi", name: "Srikandi Arsip", url: "https://srikandi.arsip.go.id", desc: "Surat-menyurat dinas & kearsipan elektronik terintegrasi.", cat: "Administrasi", accent: "sage", glyph: "▣", pin: 0 },
-  { id: "coretax", name: "Coretax DJP", url: "https://coretaxdjp.pajak.go.id", desc: "Administrasi perpajakan — e-Filing, e-Billing & profil Wajib Pajak.", cat: "Keuangan", accent: "ink", glyph: "◎", pin: 0 },
-  { id: "taspen", name: "Taspen & e-Klim", url: "https://www.taspen.co.id", desc: "Tabungan pensiun, klaim manfaat & layanan kesejahteraan ASN.", cat: "Keuangan", accent: "gold", glyph: "✦", pin: 0 },
-  { id: "edabu", name: "e-Dabu BPJS Kesehatan", url: "https://edabu.bpjs-kesehatan.go.id", desc: "Kepesertaan JKN-KIS — cek status, iuran & badan usaha.", cat: "Kesehatan", accent: "teal", glyph: "◎", pin: 0 },
-  { id: "lapor", name: "LAPOR! SPAN", url: "https://www.lapor.go.id", desc: "Kanal aspirasi & pengaduan pelayanan publik nasional.", cat: "Administrasi", accent: "clay", glyph: "⬢", pin: 0 },
+  { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: 1, sso: 1 },
+  { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: 1, sso: 1 },
+  { id: "ekin", name: "e-Kinerja BKN", url: "https://ekinerja.bkn.go.id", desc: "Perencanaan & penilaian kinerja harian hingga SKP tahunan.", cat: "Kinerja", accent: "clay", glyph: "▲", pin: 1, sso: 0 },
+  { id: "srikandi", name: "Srikandi Arsip", url: "https://srikandi.arsip.go.id", desc: "Surat-menyurat dinas & kearsipan elektronik terintegrasi.", cat: "Administrasi", accent: "sage", glyph: "▣", pin: 0, sso: 0 },
+  { id: "coretax", name: "Coretax DJP", url: "https://coretaxdjp.pajak.go.id", desc: "Administrasi perpajakan — e-Filing, e-Billing & profil Wajib Pajak.", cat: "Keuangan", accent: "ink", glyph: "◎", pin: 0, sso: 0 },
+  { id: "taspen", name: "Taspen & e-Klim", url: "https://www.taspen.co.id", desc: "Tabungan pensiun, klaim manfaat & layanan kesejahteraan ASN.", cat: "Keuangan", accent: "gold", glyph: "✦", pin: 0, sso: 0 },
+  { id: "edabu", name: "e-Dabu BPJS Kesehatan", url: "https://edabu.bpjs-kesehatan.go.id", desc: "Kepesertaan JKN-KIS — cek status, iuran & badan usaha.", cat: "Kesehatan", accent: "teal", glyph: "◎", pin: 0, sso: 0 },
+  { id: "lapor", name: "LAPOR! SPAN", url: "https://www.lapor.go.id", desc: "Kanal aspirasi & pengaduan pelayanan publik nasional.", cat: "Administrasi", accent: "clay", glyph: "⬢", pin: 0, sso: 0 },
 ];
 
 let client: Client | null = null;
@@ -64,6 +65,7 @@ export async function initDb() {
       accent TEXT NOT NULL DEFAULT 'gold',
       glyph TEXT NOT NULL DEFAULT '◈',
       pin INTEGER NOT NULL DEFAULT 0,
+      sso INTEGER NOT NULL DEFAULT 0,
       visits INTEGER NOT NULL DEFAULT 0,
       lastOpen TEXT
     );
@@ -72,6 +74,10 @@ export async function initDb() {
       v TEXT NOT NULL
     );
   `);
+  // Migrasi: basis data lama belum punya kolom sso.
+  try {
+    await db.execute("ALTER TABLE apps ADD COLUMN sso INTEGER NOT NULL DEFAULT 0");
+  } catch {}
   if (initDone) return;
   initDone = true;
   const count = await db.execute("SELECT COUNT(*) AS n FROM apps");
@@ -79,8 +85,8 @@ export async function initDb() {
   if (n === 0) {
     for (const s of SEED) {
       await db.execute({
-        sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        args: [s.id, s.name, s.url, s.desc, s.cat, s.accent, s.glyph, s.pin, 0, null],
+        sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,sso,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        args: [s.id, s.name, s.url, s.desc, s.cat, s.accent, s.glyph, s.pin, s.sso, 0, null],
       });
     }
   }
@@ -143,6 +149,7 @@ function rowToApp(r: Record<string, unknown>) {
     accent: String(r.accent ?? "gold"),
     glyph: String(r.glyph ?? "◈"),
     pin: !!Number(r.pin ?? 0),
+    sso: !!Number(r.sso ?? 0),
     visits: Number(r.visits ?? 0),
     lastOpen: (r.lastOpen as string | null) ?? null,
   };
@@ -155,23 +162,23 @@ export async function listApps() {
   return r.rows.map((x) => rowToApp(x as unknown as Record<string, unknown>));
 }
 
-export async function createApp(a: { name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean }) {
+export async function createApp(a: { name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean; sso: boolean }) {
   await initDb();
   const db = getClient();
   const id = "a" + randomBytes(4).toString("hex");
   await db.execute({
-    sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?)",
-    args: [id, a.name, a.url, a.desc, a.cat, a.accent, a.glyph, a.pin ? 1 : 0, 0, null],
+    sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,sso,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+    args: [id, a.name, a.url, a.desc, a.cat, a.accent, a.glyph, a.pin ? 1 : 0, a.sso ? 1 : 0, 0, null],
   });
   return id;
 }
 
-export async function updateApp(id: string, a: { name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean }) {
+export async function updateApp(id: string, a: { name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean; sso: boolean }) {
   await initDb();
   const db = getClient();
   const r = await db.execute({
-    sql: "UPDATE apps SET name=?,url=?,descr=?,cat=?,accent=?,glyph=?,pin=? WHERE id=?",
-    args: [a.name, a.url, a.desc, a.cat, a.accent, a.glyph, a.pin ? 1 : 0, id],
+    sql: "UPDATE apps SET name=?,url=?,descr=?,cat=?,accent=?,glyph=?,pin=?,sso=? WHERE id=?",
+    args: [a.name, a.url, a.desc, a.cat, a.accent, a.glyph, a.pin ? 1 : 0, a.sso ? 1 : 0, id],
   });
   return Number(r.rowsAffected ?? 0) > 0;
 }
@@ -182,22 +189,22 @@ export async function deleteApp(id: string) {
   await db.execute({ sql: "DELETE FROM apps WHERE id=?", args: [id] });
 }
 
-export async function replaceApps(arr: Array<{ id?: string; name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean; visits?: number; lastOpen?: string | null }>) {
+export async function replaceApps(arr: Array<{ id?: string; name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean; sso?: boolean; visits?: number; lastOpen?: string | null }>) {
   await initDb();
   const db = getClient();
   await db.execute("DELETE FROM apps");
   for (const a of arr.slice(0, 200)) {
     const id = String(a.id || "a" + randomBytes(4).toString("hex")).slice(0, 24);
     await db.execute({
-      sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?)",
-      args: [id, a.name, a.url, a.desc, a.cat, a.accent, a.glyph, a.pin ? 1 : 0, a.visits || 0, a.lastOpen || null],
+      sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,sso,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      args: [id, a.name, a.url, a.desc, a.cat, a.accent, a.glyph, a.pin ? 1 : 0, a.sso ? 1 : 0, a.visits || 0, a.lastOpen || null],
     });
   }
   return arr.length;
 }
 
 export async function resetApps() {
-  return replaceApps(SEED.map((s) => ({ ...s, pin: !!s.pin, desc: s.desc, visits: 0, lastOpen: null })));
+  return replaceApps(SEED.map((s) => ({ ...s, pin: !!s.pin, sso: !!s.sso, desc: s.desc, visits: 0, lastOpen: null })));
 }
 
 export async function recordVisit(id: string) {
@@ -211,7 +218,7 @@ export async function recordVisit(id: string) {
   return { visits, total: Number(t.rows[0]?.total ?? 0) };
 }
 
-export function cleanApp(input: unknown): { error: string } | { app: { name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean } } {
+export function cleanApp(input: unknown): { error: string } | { app: { name: string; url: string; desc: string; cat: string; accent: string; glyph: string; pin: boolean; sso: boolean } } {
   const a = (input ?? {}) as Record<string, unknown>;
   const name = String(a.name ?? "").trim().slice(0, 48);
   let url = String(a.url ?? "").trim().slice(0, 300);
@@ -227,5 +234,5 @@ export function cleanApp(input: unknown): { error: string } | { app: { name: str
   const cat = (CATS as readonly string[]).includes(String(a.cat)) ? String(a.cat) : "Lainnya";
   const accent = (ACCENTS as readonly string[]).includes(String(a.accent)) ? String(a.accent) : "gold";
   const glyph = (GLYPHS as readonly string[]).includes(String(a.glyph)) ? String(a.glyph) : "◈";
-  return { app: { name, url, desc, cat, accent, glyph, pin: !!a.pin } };
+  return { app: { name, url, desc, cat, accent, glyph, pin: !!a.pin, sso: !!a.sso } };
 }

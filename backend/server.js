@@ -51,8 +51,8 @@ const ACCENTS = ["gold", "teal", "clay", "sage", "ink"];
 const GLYPHS = ["◈", "⬢", "◎", "▲", "✦", "▣"];
 
 const SEED = [
-  { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: true },
-  { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: true },
+  { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: true, sso: true },
+  { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: true, sso: true },
   { id: "ekin", name: "e-Kinerja BKN", url: "https://ekinerja.bkn.go.id", desc: "Perencanaan & penilaian kinerja harian hingga SKP tahunan.", cat: "Kinerja", accent: "clay", glyph: "▲", pin: true },
   { id: "srikandi", name: "Srikandi Arsip", url: "https://srikandi.arsip.go.id", desc: "Surat-menyurat dinas & kearsipan elektronik terintegrasi.", cat: "Administrasi", accent: "sage", glyph: "▣", pin: false },
   { id: "coretax", name: "Coretax DJP", url: "https://coretaxdjp.pajak.go.id", desc: "Administrasi perpajakan — e-Filing, e-Billing & profil Wajib Pajak.", cat: "Keuangan", accent: "ink", glyph: "◎", pin: false },
@@ -63,7 +63,7 @@ const SEED = [
 
 /* ---------- penyimpanan ---------- */
 function blankApp(s) {
-  return { id: s.id, name: s.name, url: s.url, desc: s.desc || "", cat: s.cat, accent: s.accent, glyph: s.glyph, pin: !!s.pin, visits: 0, lastOpen: null };
+  return { id: s.id, name: s.name, url: s.url, desc: s.desc || "", cat: s.cat, accent: s.accent, glyph: s.glyph, pin: !!s.pin, sso: !!s.sso, visits: 0, lastOpen: null };
 }
 function hashPass(pass, salt) {
   return crypto.scryptSync(String(pass), salt, 64).toString("hex");
@@ -151,7 +151,7 @@ function cleanApp(a) {
   const cat = CATS.includes(a.cat) ? a.cat : "Lainnya";
   const accent = ACCENTS.includes(a.accent) ? a.accent : "gold";
   const glyph = GLYPHS.includes(a.glyph) ? a.glyph : "◈";
-  return { app: { name, url, desc, cat, accent, glyph, pin: !!a.pin } };
+  return { app: { name, url, desc, cat, accent, glyph, pin: !!a.pin, sso: !!a.sso } };
 }
 
 /* ---------- SSO helpers ---------- */
@@ -382,7 +382,12 @@ async function route(req, res) {
     let b; try { b = await readBody(req); } catch (e) { return send(res, 400, { error: e.message }); }
     const c = cleanApp(b);
     if (c.error) return send(res, 400, { error: c.error });
-    Object.assign(a, c.app); saveStore(store);
+    // Klien lama (tanpa field sso) tidak boleh menghapus gembok yang ada.
+    const hadSsoKey = !!(b && typeof b === "object" && Object.prototype.hasOwnProperty.call(b, "sso"));
+    const oldSso = !!a.sso;
+    Object.assign(a, c.app);
+    if (!hadSsoKey) a.sso = oldSso;
+    saveStore(store);
     return send(res, 200, { ok: true });
   }
   if (m === "POST" && p === "/api/apps/replace") {

@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     accent: string;
     glyph: string;
     pin: boolean;
+    sso: boolean;
     visits: number;
     lastOpen: string | null;
   }> = [];

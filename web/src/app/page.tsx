@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EmberField, MegahVeil, useMegahFx } from "../components/megah";
+import { ChainOverlay } from "../components/rantai";
 
 type AppItem = {
   id: string;
@@ -11,6 +13,7 @@ type AppItem = {
   accent: string;
   glyph: string;
   pin: boolean;
+  sso: boolean;
   visits: number;
   lastOpen: string | null;
 };
@@ -79,6 +82,10 @@ export default function Home() {
   const [clock, setClock] = useState("--:--");
   const [dateLine, setDateLine] = useState("—");
   const fileRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [veilDone, setVeilDone] = useState(false);
+  const [breaking, setBreaking] = useState(false);
+  const prevSso = useRef(false);
 
   const toast = useCallback((msg: string) => {
     setToasts((t) => [...t, msg]);
@@ -165,6 +172,11 @@ export default function Home() {
     return () => document.removeEventListener("keydown", h);
   }, []);
 
+  function lockedTap() {
+    if (ssoEnabled) window.location.href = "/api/auth/sso/login";
+    else toast("SSO belum dikonfigurasi — hubungi pengelola.");
+  }
+
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
     let list = apps.filter((a) => {
@@ -184,7 +196,31 @@ export default function Home() {
   );
   const totalVisits = apps.reduce((s, a) => s + (a.visits || 0), 0);
   const isAdmin = !!session?.canManage;
+  const authed = !!session;
   const who = session?.user ? cap(session.user) + (session.sso ? " (SSO)" : "") : serverOn ? "Tamu" : "Arunika";
+  const gridKey = useMemo(() => filtered.map((a) => a.id).join(","), [filtered]);
+  const ssoCount = useMemo(() => apps.filter((a) => a.sso).length, [apps]);
+  useMegahFx(rootRef, gridKey, veilDone);
+
+  // Segel terlepas: tepat saat sesi lahir — setelah tabir terangkat agar terlihat.
+  useEffect(() => {
+    if (!veilDone) return;
+    if (!authed || prevSso.current) {
+      prevSso.current = authed;
+      return;
+    }
+    prevSso.current = true;
+    if (ssoCount === 0) return;
+    const t1 = setTimeout(() => {
+      setBreaking(true);
+      toast(`Akses SSO terbuka — ${ssoCount} aplikasi tersedia.`);
+    }, 0);
+    const t2 = setTimeout(() => setBreaking(false), 2400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [authed, veilDone, ssoCount, toast]);
 
   async function doLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -274,6 +310,7 @@ export default function Home() {
       accent: f.accent || "gold",
       glyph: f.glyph || "◈",
       pin: !!f.pin,
+      sso: !!f.sso,
     };
     try {
       if (f.id) await api(`/api/apps/${encodeURIComponent(String(f.id))}`, { method: "PUT", body: payload });
@@ -337,6 +374,7 @@ export default function Home() {
             accent: ACCENTS.includes(String(x.accent)) ? String(x.accent) : "gold",
             glyph: String(x.glyph || "◈").slice(0, 4),
             pin: !!(x.pin as boolean),
+            sso: !!(x.sso as boolean),
             visits: Number(x.visits) || 0,
             lastOpen: (x.lastOpen as string) || null,
           }));
@@ -356,7 +394,9 @@ export default function Home() {
   }, [apps, palQ]);
 
   return (
-    <div className={isAdmin ? "is-admin is-logged is-server" : session ? "is-logged is-server" : "is-server"}>
+    <div ref={rootRef} className={isAdmin ? "is-admin is-logged is-server" : session ? "is-logged is-server" : "is-server"}>
+      {!veilDone && <MegahVeil onDone={() => setVeilDone(true)} />}
+      <EmberField />
       <div className="grain" aria-hidden="true" />
 
       {/* LOGIN */}
@@ -464,34 +504,54 @@ export default function Home() {
         <section className="hero">
           <div className="hero-left">
             <p className="eyebrow">
-              Selamat <span>{session ? "datang" : "datang"}</span>, <b>{esc(who)}</b> — <span>{dateLine}</span>
+              Selamat datang, <b>{esc(who)}</b> — <span>{dateLine}</span>
             </p>
             <h2 className="hero-title">
-              Pilih gerbang
-              <br />
-              <em>tugas Anda</em> hari ini.
+              <span className="mg-line">
+                <span className="mg-line-inner">Pilih gerbang</span>
+              </span>
+              <span className="mg-line">
+                <span className="mg-line-inner">
+                  <em>tugas Anda</em> hari ini.
+                </span>
+              </span>
             </h2>
             <div className="stats">
               <div className="stat">
-                <b>{apps.length}</b>
+                <b data-count={apps.length}>{apps.length}</b>
                 <span>gerbang terdaftar</span>
               </div>
               <div className="stat">
-                <b>{apps.filter((a) => a.pin).length}</b>
+                <b data-count={apps.filter((a) => a.pin).length}>{apps.filter((a) => a.pin).length}</b>
                 <span>disematkan</span>
               </div>
               <div className="stat">
-                <b>{totalVisits}</b>
+                <b data-count={totalVisits}>{totalVisits}</b>
                 <span>kunjungan tercatat</span>
               </div>
             </div>
           </div>
           <div className="hero-right">
-            <div className="dial">
-              <div className="dial-ring" />
-              <div className="dial-core">
-                <b>{String(filtered.length).padStart(2, "0")}</b>
-                <span>siap dibuka</span>
+            <div className="dial-wrap">
+              <svg className="dial-runes" viewBox="0 0 168 168" aria-hidden="true">
+                <defs>
+                  <path id="rune-circle" d="M84,84 m-72,0 a72,72 0 1,1 144,0 a72,72 0 1,1 -144,0" />
+                </defs>
+                <circle className="ring" cx={84} cy={84} r={78} />
+                <circle className="ring" cx={84} cy={84} r={58} />
+                <text>
+                  <textPath href="#rune-circle">◈ ✦ ▲ ● ◆ ✧ ◈ ✦ ▲ ● ◆ ✧ ◈ ✦ ▲ ● ◆ ✧ ◈ ✦</textPath>
+                </text>
+              </svg>
+              <div className="dial">
+                <div
+                  className="dial-ring"
+                  data-p={`${apps.length ? Math.min(100, (filtered.length / apps.length) * 100) : 0}%`}
+                />
+                <div className="dial-core">
+                  <b>{String(filtered.length).padStart(2, "0")}</b>
+                  <span>siap dibuka</span>
+                </div>
               </div>
             </div>
           </div>
@@ -518,41 +578,54 @@ export default function Home() {
         </nav>
 
         <main className="grid" aria-live="polite">
-          {filtered.map((a, i) => (
-            <article key={a.id} className="card" data-accent={a.accent}>
-              <div className="card-top">
-                <span className="card-idx">
-                  {String(i + 1).padStart(2, "0")} / {esc(a.cat)}
-                </span>
-                {a.pin && <span className="pin-flag">★ SEMAT</span>}
-                <span className="glyph" aria-hidden="true">
-                  {esc(a.glyph)}
-                </span>
-              </div>
-              <p className="cat">{esc(a.cat)}</p>
-              <h3>{esc(a.name)}</h3>
-              <p className="desc">{esc(a.desc || hostOf(a.url))}</p>
-              <div className="card-meta">
-                <span>{esc(hostOf(a.url))}</span>
-                <span>{a.visits || 0}× dibuka</span>
-              </div>
-              <div className="card-actions">
-                <button className="go" onClick={() => openApp(a)}>
-                  Kunjungi <span>↗</span>
-                </button>
-                {isAdmin && managing && (
-                  <>
-                    <button className="mini" title="Ubah" onClick={() => { if (!needAdmin()) return; setModal({ ...a }); setFormErr(""); }}>
-                      ✎
+          {filtered.map((a, i) => {
+            const isLocked = !!a.sso && !authed;
+            const showChain = isLocked || (breaking && !!a.sso);
+            return (
+              <article key={a.id} className={`card${isLocked ? " is-locked" : ""}`} data-accent={a.accent}>
+                <div className="card-top">
+                  <span className="card-idx">
+                    {String(i + 1).padStart(2, "0")} / {esc(a.cat)}
+                  </span>
+                  {a.pin && <span className="pin-flag">★ SEMAT</span>}
+                  <span className="glyph" aria-hidden="true">
+                    {esc(a.glyph)}
+                  </span>
+                </div>
+                <p className="cat">
+                  {esc(a.cat)} {a.sso && <span className="sso-flag">⛓ SSO</span>}
+                </p>
+                <h3>{esc(a.name)}</h3>
+                <p className="desc">{esc(a.desc || hostOf(a.url))}</p>
+                <div className="card-meta">
+                  <span>{esc(hostOf(a.url))}</span>
+                  <span>{a.visits || 0}× dibuka</span>
+                </div>
+                <div className="card-actions">
+                  {isLocked ? (
+                    <button className="go is-chained" onClick={lockedTap}>
+                      ⛓ Buka dengan SSO <span>→</span>
                     </button>
-                    <button className="mini" title="Hapus" onClick={() => removeApp(a)}>
-                      🗑
+                  ) : (
+                    <button className="go" onClick={() => openApp(a)}>
+                      Kunjungi <span>↗</span>
                     </button>
-                  </>
-                )}
-              </div>
-            </article>
-          ))}
+                  )}
+                  {isAdmin && managing && (
+                    <>
+                      <button className="mini" title="Ubah" onClick={() => { if (!needAdmin()) return; setModal({ ...a }); setFormErr(""); }}>
+                        ✎
+                      </button>
+                      <button className="mini" title="Hapus" onClick={() => removeApp(a)}>
+                        🗑
+                      </button>
+                    </>
+                  )}
+                </div>
+                {showChain && <ChainOverlay breaking={breaking && !isLocked} name={a.name} onUnlock={lockedTap} />}
+              </article>
+            );
+          })}
         </main>
 
         {filtered.length === 0 && (
@@ -636,6 +709,10 @@ export default function Home() {
                   <span>Sematkan di baris depan</span>
                 </label>
               </div>
+              <label className="check chain-check">
+                <input type="checkbox" checked={!!modal.sso} onChange={(e) => setModal({ ...modal, sso: e.target.checked })} />
+                <span>⛓ Gembok rantai — hanya terbuka setelah masuk</span>
+              </label>
               {formErr && (
                 <p className="form-err" role="alert">
                   {formErr}
