@@ -65,6 +65,11 @@
         </label>
         <p class="form-err" id="loginErr" role="alert" hidden></p>
         <button class="btn-gold" type="submit"><span>Buka Portal</span><i>→</i></button>
+        <div id="ssoWrap" hidden style="margin-top:12px">
+          <div style="text-align:center;font-size:12px;opacity:.7;margin:8px 0">— atau —</div>
+          <button class="btn-ghost" type="button" id="ssoBtn" style="width:100%;justify-content:center">◈ Masuk dengan SSO (Keycloak)</button>
+          <p class="muted small" id="ssoHint" style="margin-top:8px"></p>
+        </div>
         <p class="hint">Bawaan: <code>admin</code> / <code>bertaut123</code> — segera ganti setelah masuk.</p>
       </form>
       <div class="back-row server-only"><button id="backBtn" type="button">← Kembali ke etalase publik</button></div>
@@ -99,7 +104,7 @@
       <button class="btn-ghost admin-only" id="manageBtn" aria-pressed="false">Kelola</button>
       <button class="btn-ghost admin-only" id="addBtn">＋ Tambah</button>
       <button class="btn-ghost icon admin-only" id="settingsBtn" aria-label="Pengaturan">⚙</button>
-      <button class="avatar admin-only" id="logoutBtn" title="Keluar">A</button>
+      <button class="avatar logged-only" id="logoutBtn" title="Keluar">A</button>
     </div>
   </header>
 

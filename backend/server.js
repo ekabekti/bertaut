@@ -1,4 +1,4 @@
-/* BERTAUT backend — API + penyaji frontend. Nol dependensi.
+/* BERTAUT backend — API + penyaji frontend + SSO Keycloak (OIDC).
  * Jalankan:  node backend/server.js   (atau: npm start --prefix backend)
  * Buka:      http://localhost:3000  (atau sesuai PORT)
  */
@@ -8,11 +8,43 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
+/* muat .env sederhana (tanpa dependensi) */
+(function loadDotEnv() {
+  try {
+    const envPath = path.join(__dirname, ".env");
+    if (!fs.existsSync(envPath)) return;
+    const raw = fs.readFileSync(envPath, "utf8");
+    for (const line of raw.split("\n")) {
+      const t = line.trim();
+      if (!t || t.startsWith("#")) continue;
+      const eq = t.indexOf("=");
+      if (eq < 0) continue;
+      const k = t.slice(0, eq).trim();
+      let v = t.slice(eq + 1).trim();
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if (!(k in process.env)) process.env[k] = v;
+    }
+  } catch (e) { /* abaikan */ }
+})();
+
 const PORT = +(process.env.PORT || 3000);
 const DATA_DIR = process.env.BERTAUT_DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "bertaut.json");
 const TTL_MS = (+(process.env.TOKEN_TTL_HOURS || 12)) * 3600e3;
 const FRONT_DIR = path.join(__dirname, "..", "frontend");
+
+/* ---------- SSO Keycloak (OIDC) ---------- */
+const SSO_ISSUER = (process.env.KEYCLOAK_ISSUER || "").replace(/\/$/, ""); // cth. http://localhost:8080/realms/bertaut
+const SSO_CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || "";
+const SSO_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET || "";
+const SSO_REDIRECT_URI = process.env.KEYCLOAK_REDIRECT_URI || `http://localhost:${PORT}/auth/sso/callback`;
+const SSO_SCOPES = process.env.KEYCLOAK_SCOPES || "openid profile email";
+const SSO_ADMIN_ROLES = (process.env.BERTAUT_ADMIN_ROLES || "bertaut-admin,admin")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+const SSO_ENABLED = !!(SSO_ISSUER && SSO_CLIENT_ID);
+const ssoStates = new Map(); // state -> { exp, nonce }
+let discoveryCache = null;
+let discoveryAt = 0;
 
 const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Lainnya"];
 const ACCENTS = ["gold", "teal", "clay", "sage", "ink"];
@@ -99,6 +131,10 @@ function bearer(req) {
 function needAdmin(req, res) {
   const t = bearer(req);
   if (!t) { send(res, 401, { error: "Perlu masuk sebagai pengelola." }); return null; }
+  // Token lokal lama (tanpa flag) tetap dianggap pengelola demi kompatibilitas.
+  // Token SSO hanya lolos bila canManage === true (role admin terpenuhi).
+  const canManage = (t.canManage !== undefined) ? !!t.canManage : true;
+  if (!canManage) { send(res, 403, { error: "Akun SSO Anda tidak punya peran pengelola." }); return null; }
   return t;
 }
 function cleanApp(a) {
@@ -116,6 +152,47 @@ function cleanApp(a) {
   const accent = ACCENTS.includes(a.accent) ? a.accent : "gold";
   const glyph = GLYPHS.includes(a.glyph) ? a.glyph : "◈";
   return { app: { name, url, desc, cat, accent, glyph, pin: !!a.pin } };
+}
+
+/* ---------- SSO helpers ---------- */
+function redirect(res, location) {
+  res.writeHead(302, { Location: location, ...SEC });
+  res.end("mengalihkan…");
+}
+async function getDiscovery() {
+  if (!SSO_ENABLED) throw new Error("SSO belum dikonfigurasi (KEYCLOAK_ISSUER/CLIENT_ID kosong).");
+  const now = Date.now();
+  if (discoveryCache && now - discoveryAt < 10 * 60e3) return discoveryCache;
+  const wellKnown = SSO_ISSUER + "/.well-known/openid-configuration";
+  const r = await fetch(wellKnown, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error("Gagal memuat OIDC discovery (" + r.status + ") dari " + wellKnown);
+  const j = await r.json();
+  if (!j.authorization_endpoint || !j.token_endpoint || !j.jwks_uri) throw new Error("Discovery OIDC tidak lengkap.");
+  discoveryCache = j; discoveryAt = now;
+  return j;
+}
+function extractRoles(payload) {
+  const roles = new Set();
+  try {
+    const realm = (payload.realm_access && payload.realm_access.roles) || [];
+    for (const r of realm) roles.add(String(r));
+    const res = payload.resource_access || {};
+    for (const k of Object.keys(res)) {
+      const arr = (res[k] && res[k].roles) || [];
+      for (const r of arr) { roles.add(String(r)); roles.add(k + ":" + String(r)); }
+    }
+  } catch (e) {}
+  return Array.from(roles);
+}
+async function verifyIdToken(idToken, discovery) {
+  // Verifikasi tanda tangan + issuer + audience memakai JWKS Keycloak (lib jose).
+  const { createRemoteJWKSet, jwtVerify } = await import("jose");
+  const JWKS = createRemoteJWKSet(new URL(discovery.jwks_uri));
+  const { payload } = await jwtVerify(idToken, JWKS, {
+    issuer: discovery.issuer || SSO_ISSUER,
+    audience: SSO_CLIENT_ID,
+  });
+  return payload;
 }
 
 /* ---------- berkas statis (frontend) ---------- */
@@ -146,8 +223,113 @@ async function route(req, res) {
   const p = u.pathname;
   const m = req.method;
 
-  if (m === "GET" && p === "/api/health") return send(res, 200, { ok: true, name: "BERTAUT", apps: store.apps.length, time: new Date().toISOString() });
+  if (m === "GET" && p === "/api/health") return send(res, 200, { ok: true, name: "BERTAUT", apps: store.apps.length, time: new Date().toISOString(), sso: SSO_ENABLED });
   if (m === "GET" && p === "/api/apps") return send(res, 200, store.apps);
+  if (m === "GET" && p === "/api/auth/config") {
+    return send(res, 200, {
+      ssoEnabled: SSO_ENABLED,
+      issuer: SSO_ISSUER || null,
+      clientId: SSO_CLIENT_ID || null,
+      redirectUri: SSO_REDIRECT_URI,
+      loginUrl: SSO_ENABLED ? "/auth/sso/login" : null,
+      adminRoles: SSO_ADMIN_ROLES,
+    });
+  }
+
+  /* --- SSO: mulai login --- */
+  if (m === "GET" && p === "/auth/sso/login") {
+    try {
+      const disc = await getDiscovery();
+      const state = crypto.randomBytes(16).toString("hex");
+      const nonce = crypto.randomBytes(16).toString("hex");
+      ssoStates.set(state, { exp: Date.now() + 10 * 60e3, nonce });
+      // bersihkan state kedaluwarsa
+      for (const [k, v] of ssoStates) if (v.exp < Date.now()) ssoStates.delete(k);
+      const authUrl = new URL(disc.authorization_endpoint);
+      authUrl.searchParams.set("client_id", SSO_CLIENT_ID);
+      authUrl.searchParams.set("redirect_uri", SSO_REDIRECT_URI);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("scope", SSO_SCOPES);
+      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("nonce", nonce);
+      return redirect(res, authUrl.toString());
+    } catch (e) {
+      return send(res, 500, { error: "SSO belum siap: " + e.message });
+    }
+  }
+
+  /* --- SSO: callback dari Keycloak --- */
+  if (m === "GET" && p === "/auth/sso/callback") {
+    const code = u.searchParams.get("code");
+    const state = u.searchParams.get("state");
+    const errDesc = u.searchParams.get("error_description") || u.searchParams.get("error");
+    if (errDesc && !code) {
+      return redirect(res, "/?sso_error=" + encodeURIComponent(errDesc));
+    }
+    if (!code || !state) return send(res, 400, { error: "Callback SSO tidak lengkap (code/state hilang)." });
+    const saved = ssoStates.get(state);
+    ssoStates.delete(state);
+    if (!saved || saved.exp < Date.now()) {
+      return redirect(res, "/?sso_error=" + encodeURIComponent("State SSO kedaluwarsa. Coba lagi."));
+    }
+    try {
+      const disc = await getDiscovery();
+      const body = new URLSearchParams();
+      body.set("grant_type", "authorization_code");
+      body.set("code", code);
+      body.set("redirect_uri", SSO_REDIRECT_URI);
+      body.set("client_id", SSO_CLIENT_ID);
+      if (SSO_CLIENT_SECRET) body.set("client_secret", SSO_CLIENT_SECRET);
+      const tr = await fetch(disc.token_endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: body.toString(),
+      });
+      const tj = await tr.json().catch(() => ({}));
+      if (!tr.ok) throw new Error((tj.error_description || tj.error || ("token exchange " + tr.status)));
+      const idToken = tj.id_token;
+      if (!idToken) throw new Error("Keycloak tidak mengembalikan id_token.");
+      const claims = await verifyIdToken(idToken, disc);
+      if (saved.nonce && claims.nonce && claims.nonce !== saved.nonce) throw new Error("nonce tidak cocok.");
+      const roles = extractRoles(claims);
+      const canManage = roles.some((r) => SSO_ADMIN_ROLES.includes(r));
+      const username = claims.preferred_username || claims.email || claims.name || claims.sub || "sso-user";
+      const token = crypto.randomBytes(32).toString("hex");
+      tokens.set(token, {
+        user: String(username),
+        exp: Date.now() + TTL_MS,
+        sso: true,
+        roles,
+        canManage,
+        sub: claims.sub || null,
+      });
+      // kembali ke etalase dengan token di fragment (tidak tercatat di log server)
+      const frag = "#sso_token=" + encodeURIComponent(token);
+      return redirect(res, "/" + frag);
+    } catch (e) {
+      console.error("[bertaut][sso]", e.message);
+      return redirect(res, "/?sso_error=" + encodeURIComponent(e.message));
+    }
+  }
+
+  /* --- SSO: logout (hapus sesi lokal + arahkan ke Keycloak) --- */
+  if (m === "GET" && p === "/auth/sso/logout") {
+    const h = req.headers.authorization || "";
+    const mm = /^Bearer (.+)$/.exec(h);
+    if (mm) tokens.delete(mm[1]);
+    try {
+      if (SSO_ENABLED) {
+        const disc = await getDiscovery();
+        if (disc.end_session_endpoint) {
+          const lo = new URL(disc.end_session_endpoint);
+          lo.searchParams.set("post_logout_redirect_uri", u.searchParams.get("next") || ("http://localhost:" + PORT + "/"));
+          if (u.searchParams.get("id_token")) lo.searchParams.set("id_token_hint", u.searchParams.get("id_token"));
+          return redirect(res, lo.toString());
+        }
+      }
+    } catch (e) {}
+    return redirect(res, "/");
+  }
 
   if (m === "POST" && p === "/api/login") {
     const ip = req.socket.remoteAddress || "?";
@@ -161,13 +343,13 @@ async function route(req, res) {
     const okPass = okUser && hashPass(String(b.pass || ""), store.admin.salt) === store.admin.hash;
     if (!okPass) return send(res, 401, { error: "Kunci tidak cocok." });
     const token = crypto.randomBytes(32).toString("hex");
-    tokens.set(token, { user: store.admin.user, exp: now + TTL_MS });
-    return send(res, 200, { token, user: store.admin.user });
+    tokens.set(token, { user: store.admin.user, exp: now + TTL_MS, sso: false, roles: ["local-admin"], canManage: true });
+    return send(res, 200, { token, user: store.admin.user, sso: false, canManage: true });
   }
   if (m === "GET" && p === "/api/me") {
     const t = bearer(req);
     if (!t) return send(res, 401, { error: "Sesi berakhir." });
-    return send(res, 200, { user: t.user });
+    return send(res, 200, { user: t.user, sso: !!t.sso, roles: t.roles || [], canManage: (t.canManage !== undefined) ? !!t.canManage : true });
   }
 
   const visit = /^\/api\/apps\/([A-Za-z0-9_-]+)\/visit$/.exec(p);
@@ -250,7 +432,7 @@ async function route(req, res) {
 const server = http.createServer((req, res) => {
   try {
     const p = new URL(req.url, "http://x").pathname;
-    if (p === "/api" || p.startsWith("/api/")) {
+    if (p === "/api" || p.startsWith("/api/") || p === "/auth" || p.startsWith("/auth/")) {
       route(req, res).catch((e) => { try { send(res, 500, { error: "Galat server." }); } catch (_) {} console.error("[bertaut]", e.message); });
     } else if (req.method === "GET" || req.method === "HEAD") {
       serveStatic(req, res, p);
@@ -260,4 +442,11 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`[bertaut] etalase publik:  http://localhost:${PORT}`);
   console.log(`[bertaut] data tersimpan: ${DATA_FILE}`);
+  if (SSO_ENABLED) {
+    console.log(`[bertaut] SSO aktif: ${SSO_ISSUER} (client=${SSO_CLIENT_ID})`);
+    console.log(`[bertaut] SSO callback: ${SSO_REDIRECT_URI}`);
+    console.log(`[bertaut] peran pengelola: ${SSO_ADMIN_ROLES.join(", ")}`);
+  } else {
+    console.log("[bertaut] SSO nonaktif — isi KEYCLOAK_ISSUER + KEYCLOAK_CLIENT_ID untuk mengaktifkan.");
+  }
 });

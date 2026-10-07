@@ -67,7 +67,8 @@ code,kbd{font-family:var(--font-m);font-size:.82em;background:rgba(201,168,106,.
 .btn-gold i{font-style:normal}
 .hint{font-size:13px;color:var(--muted)}.login-foot{display:flex;justify-content:space-between;align-items:center;margin-top:1.2rem;font-size:12px;color:var(--muted)}
 .login-foot button{background:none;border:0;color:var(--gold);cursor:pointer;text-decoration:underline;font-size:12px}
-.shake{animation:shake .4s}.@keyframes shake{25%{transform:translateX(-7px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-7px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}}
 
 /* App shell */
 #appView{position:relative;z-index:2}

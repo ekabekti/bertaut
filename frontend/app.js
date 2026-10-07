@@ -32,9 +32,22 @@ function cap(s){s=String(s||"");return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 
 /* ---------- peran & koneksi backend ---------- */
 var Admin={on:false,user:null};
+var Session={user:null,sso:false,roles:[],canManage:false};
+var SSO={enabled:false,loginUrl:null,adminRoles:[]};
 var Remote={on:false,token:null};
 try{Remote.token=sessionStorage.getItem(SS_TOKEN)}catch(e){Remote.token=null}
-function setAdmin(u){Admin.on=!!u;Admin.user=u||null;document.body.classList.toggle("is-admin",Admin.on)}
+function setAdmin(u,info){
+  info=info||{};
+  Session.user=u||null;
+  Session.sso=!!info.sso;
+  Session.roles=Array.isArray(info.roles)?info.roles:[];
+  Session.canManage=(info.canManage!==undefined)?!!info.canManage:!!u;
+  // Admin.on = boleh Kelola (mengendalikan tombol .admin-only)
+  Admin.on=!!u&&Session.canManage;
+  Admin.user=u||null;
+  document.body.classList.toggle("is-admin",Admin.on);
+  document.body.classList.toggle("is-logged",!!u);
+}
 function serverMode(){return document.body.classList.contains("is-server")}
 function api(path,opts){
   opts=opts||{};
@@ -79,23 +92,76 @@ for(var i=0;i<70;i++)P.push({x:Math.random()*innerWidth,y:Math.random()*innerHei
 
 /* jam */
 function tickClock(){try{var now=new Date(),fmt=new Intl.DateTimeFormat("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"Asia/Jakarta"}),df=new Intl.DateTimeFormat("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"Asia/Jakarta"});
-var t=fmt.format(now),d=df.format(now);if($("#loginClock")){$("#loginClock").textContent=t;$("#loginDate").textContent=d}if($("#clock")){$("#clock").textContent=t.slice(0,5);$("#dateLine").textContent=d}var h=parseInt(t.slice(0,2),10),g=h<11?"pagi":h<15?"siang":h<19?"sore":"malam";if($("#greet"))$("#greet").textContent=Admin.on?g:"datang";if($("#todayLine"))$("#todayLine").textContent=d;}catch(e){}}setInterval(tickClock,1000);tickClock();
+var t=fmt.format(now),d=df.format(now);if($("#loginClock")){$("#loginClock").textContent=t;$("#loginDate").textContent=d}if($("#clock")){$("#clock").textContent=t.slice(0,5);$("#dateLine").textContent=d}var h=parseInt(t.slice(0,2),10),g=h<11?"pagi":h<15?"siang":h<19?"sore":"malam";if($("#greet"))$("#greet").textContent=Session.user?g:"datang";if($("#todayLine"))$("#todayLine").textContent=d;}catch(e){}}setInterval(tickClock,1000);tickClock();
 
 /* ---------- boot: backend dulu, lokal sebagai cadangan ---------- */
+function parseSsoReturn(){
+  try{
+    var h=location.hash||"";
+    var m=/#sso_token=([^&]+)/.exec(h);
+    if(m){
+      var tok=decodeURIComponent(m[1]);
+      try{sessionStorage.setItem(SS_TOKEN,tok)}catch(e){}
+      Remote.token=tok;
+      location.hash="";
+      history.replaceState(null,"",location.pathname+location.search);
+      return {token:tok};
+    }
+  }catch(e){}
+  try{
+    var q=new URLSearchParams(location.search);
+    var err=q.get("sso_error");
+    if(err){
+      q.delete("sso_error");
+      var qs=q.toString();
+      history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash);
+      return {error:err};
+    }
+  }catch(e){}
+  return null;
+}
+function loadSsoConfig(){
+  if(location.protocol==="file:")return Promise.resolve();
+  return api("/api/auth/config",{timeout:3500}).then(function(c){
+    SSO.enabled=!!(c&&c.ssoEnabled);
+    SSO.loginUrl=(c&&c.loginUrl)||null;
+    SSO.adminRoles=(c&&c.adminRoles)||[];
+    var w=$("#ssoWrap"),b=$("#ssoBtn"),hint=$("#ssoHint");
+    if(w)w.hidden=!SSO.enabled;
+    if(b&&SSO.enabled)b.addEventListener("click",function(){location.href=SSO.loginUrl});
+    if(hint&&SSO.enabled)hint.textContent="Peran pengelola: "+(SSO.adminRoles.join(", ")||"—")+". Akun tanpa peran tetap bisa melihat etalase.";
+  }).catch(function(){SSO.enabled=false});
+}
 function boot(){
   if(location.protocol==="file:"){localEnter();renderAll();return}
   document.body.classList.add("is-server");
+  var ssoRet=parseSsoReturn();
+  if(ssoRet&&ssoRet.error){
+    try{var ee=$("#loginErr");if(ee){ee.hidden=false;ee.textContent="SSO gagal: "+ssoRet.error}}catch(e){}
+    toast("SSO gagal: "+ssoRet.error);
+  }
   api("/api/health",{timeout:3500}).then(function(h){Remote.on=!!(h&&h.ok)}).catch(function(){Remote.on=false}).then(function(){
     if(!Remote.on){localEnter();renderAll();return}
-    refreshApps().catch(function(){}).then(function(){
-      if(!Remote.token)return null;
-      return api("/api/me").then(function(me){if(me&&me.user)setAdmin(me.user)}).catch(function(){Remote.token=null;try{sessionStorage.removeItem(SS_TOKEN)}catch(e){}});
-    }).then(function(){showApp();renderAll()});
+    return loadSsoConfig().then(function(){
+      return refreshApps().catch(function(){}).then(function(){
+        if(!Remote.token)return null;
+        return api("/api/me").then(function(me){
+          if(me&&me.user){
+            setAdmin(me.user,{sso:me.sso,roles:me.roles,canManage:me.canManage});
+            if(!me.canManage)toast("Masuk SSO sebagai "+me.user+" (lihat saja — tanpa peran pengelola).");
+          }
+        }).catch(function(){Remote.token=null;try{sessionStorage.removeItem(SS_TOKEN)}catch(e){}});
+      }).then(function(){
+        // Selalu tampilkan etalase publik; login hanya untuk Kelola.
+        showApp();renderAll();
+        if(ssoRet&&ssoRet.token&&Session.user&&Session.canManage)toast("Selamat bertugas, "+Session.user+" (SSO).");
+      });
+    });
   });
 }
 function localEnter(){
   var s=null;try{s=sessionStorage.getItem(SS_SESS)}catch(e){}
-  if(s==="ok"){setAdmin(creds.user);showApp()}else{showLogin()}
+  if(s==="ok"){setAdmin(creds.user,{sso:false,roles:["local-admin"],canManage:true});showApp()}else{showLogin()}
   save(LS_APPS,apps);
 }
 function showLogin(){$("#loginView").hidden=false;$("#appView").hidden=true}
@@ -110,19 +176,26 @@ $("#loginForm").addEventListener("submit",function(e){
   if(Remote.on){
     api("/api/login",{method:"POST",body:{user:u,pass:p}}).then(function(r){
       Remote.token=r.token;try{sessionStorage.setItem(SS_TOKEN,r.token)}catch(x){}
-      setAdmin(r.user);err.hidden=true;showApp();renderAll();toast("Selamat bertugas, "+r.user+".");
+      setAdmin(r.user,{sso:!!r.sso,roles:r.roles||["local-admin"],canManage:(r.canManage!==undefined)?r.canManage:true});err.hidden=true;showApp();renderAll();toast("Selamat bertugas, "+r.user+".");
     }).catch(function(ex){
       err.hidden=false;err.textContent=(ex&&ex.auth)?ex.message:"Kunci tidak cocok. Periksa nama pengguna & kata sandi.";shakeCard();
     });
     return;
   }
-  if(u===creds.user&&p===creds.pass){err.hidden=true;try{sessionStorage.setItem(SS_SESS,"ok")}catch(x){}setAdmin(creds.user);showApp();renderAll();toast("Selamat datang kembali, "+u+".")}
+  if(u===creds.user&&p===creds.pass){err.hidden=true;try{sessionStorage.setItem(SS_SESS,"ok")}catch(x){}setAdmin(creds.user,{sso:false,roles:["local-admin"],canManage:true});showApp();renderAll();toast("Selamat datang kembali, "+u+".")}
   else{err.hidden=false;err.textContent="Kunci tidak cocok. Periksa nama pengguna & kata sandi.";shakeCard()}
 });
 $("#logoutBtn").addEventListener("click",function(){
+  var wasSso=Session.sso;
   Remote.token=null;try{sessionStorage.removeItem(SS_TOKEN)}catch(e){}
   try{sessionStorage.removeItem(SS_SESS)}catch(e){}
   setAdmin(null);state.managing=false;$("#loginPass").value="";
+  if(wasSso&&SSO.enabled){
+    // bersihkan sesi Keycloak juga bila memungkinkan
+    toast("Keluar SSO…");
+    location.href="/auth/sso/logout?next="+encodeURIComponent(location.origin+"/");
+    return;
+  }
   if(serverMode()){showApp();renderAll();toast("Anda keluar. Etalase tetap terbuka publik.")}else{showLogin();toast("Portal dikunci kembali.")}
 });
 var loginNavBtn=$("#loginNavBtn");
@@ -155,10 +228,11 @@ function renderStats(){
   $("#dialNum").textContent=String(filtered().length).padStart(2,"0");
   var ring=$(".dial-ring");if(ring)ring.style.setProperty("--p",Math.min(100,apps.length?filtered().length/apps.length*100:0)+"%");
   $("#footCount").textContent=apps.length+" gerbang · "+tot+" kunjungan";
-  var who=Admin.on?cap(Admin.user):(serverMode()?"Tamu":cap(creds.user));
+  var who=Session.user?cap(Session.user)+(Session.sso?" (SSO)":""):(serverMode()?"Tamu":cap(creds.user));
   var nm=$("#whoName");if(nm)nm.textContent=who;
-  var av=$("#logoutBtn");if(av)av.textContent=(Admin.user||"?").charAt(0).toUpperCase();
-  var su=$("#sUser");if(su&&!su.value)su.value=Admin.on?Admin.user:creds.user;
+  var av=$("#logoutBtn");if(av)av.textContent=((Session.user||Admin.user||"?").charAt(0)||"?").toUpperCase();
+  var su=$("#sUser");if(su&&!su.value)su.value=Session.user||creds.user;
+  var navBtn=$("#loginNavBtn");if(navBtn)navBtn.style.display=Session.user?"none":"";
   tickClock();
 }
 
@@ -200,7 +274,11 @@ function removeApp(a){
 }
 
 /* ---------- cari / urut / kelola ---------- */
-function needAdmin(){if(Admin.on)return true;toast("Masuk dahulu sebagai pengelola.");if(serverMode())showLogin();return false}
+function needAdmin(){
+  if(Admin.on)return true;
+  if(Session.user&&!Session.canManage){toast("Akun SSO "+Session.user+" tidak punya peran pengelola ("+SSO.adminRoles.join(", ")+").");return false}
+  toast("Masuk dahulu sebagai pengelola.");if(serverMode())showLogin();return false;
+}
 var qEl=$("#q");if(qEl)qEl.addEventListener("input",function(){state.q=qEl.value;renderGrid();renderStats()});
 var ss=$("#sortSel");if(ss)ss.addEventListener("change",function(){state.sort=ss.value;renderGrid()});
 var mBtn=$("#manageBtn");if(mBtn)mBtn.addEventListener("click",function(){if(!needAdmin())return;state.managing=!state.managing;renderGrid();toast(state.managing?"Mode kelola aktif — ubah & hapus tersedia.":"Mode kelola mati.")});
@@ -249,11 +327,11 @@ $("#saveCreds").addEventListener("click",function(){
   if(p&&p.length<6){toast("Kata sandi minimal 6 karakter.");return}
   if(Remote.on){
     api("/api/creds",{method:"POST",body:{user:u,pass:p||undefined}}).then(function(r){
-      setAdmin(r.user);$("#sPass").value="";renderAll();toast("Kunci masuk diperbarui.");
+      setAdmin(r.user,{sso:Session.sso,roles:Session.roles,canManage:true});$("#sPass").value="";renderAll();toast("Kunci masuk diperbarui.");
     }).catch(function(e){toast(e.message||"Gagal menyimpan kunci.")});
     return;
   }
-  creds={user:u,pass:p||creds.pass};save(LS_CREDS,creds);setAdmin(creds.user);$("#sPass").value="";renderStats();toast("Kunci masuk diperbarui.");
+  creds={user:u,pass:p||creds.pass};save(LS_CREDS,creds);setAdmin(creds.user,{sso:false,roles:["local-admin"],canManage:true});$("#sPass").value="";renderStats();toast("Kunci masuk diperbarui.");
 });
 $("#exportBtn").addEventListener("click",function(){
   if(Remote.on){
