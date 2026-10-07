@@ -59,6 +59,7 @@ const SEED = [
   { id: "taspen", name: "Taspen & e-Klim", url: "https://www.taspen.co.id", desc: "Tabungan pensiun, klaim manfaat & layanan kesejahteraan ASN.", cat: "Keuangan", accent: "gold", glyph: "✦", pin: false },
   { id: "edabu", name: "e-Dabu BPJS Kesehatan", url: "https://edabu.bpjs-kesehatan.go.id", desc: "Kepesertaan JKN-KIS — cek status, iuran & badan usaha.", cat: "Kesehatan", accent: "teal", glyph: "◎", pin: false },
   { id: "lapor", name: "LAPOR! SPAN", url: "https://www.lapor.go.id", desc: "Kanal aspirasi & pengaduan pelayanan publik nasional.", cat: "Administrasi", accent: "clay", glyph: "⬢", pin: false },
+  { id: "slaman", name: "SLAman Teknisi", url: "https://slaman-kabprob.vercel.app/login?sso=1", desc: "Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.", cat: "Kinerja", accent: "sage", glyph: "⬢", pin: false, sso: true },
 ];
 
 /* ---------- penyimpanan ---------- */
