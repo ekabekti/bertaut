@@ -5,7 +5,7 @@
  * mengatur state awal di dalam context lalu menganimasikannya.
  * Hormati prefers-reduced-motion. Aman StrictMode via ctx.revert().
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -41,41 +41,40 @@ function Snitch() {
 }
 
 function Castle() {
-  const towers = [
-    { x: 60, w: 46, top: 58, apex: 22 },
-    { x: 190, w: 56, top: 44, apex: 8 },
-    { x: 320, w: 64, top: 30, apex: 2 },
-    { x: 470, w: 56, top: 44, apex: 8 },
-    { x: 594, w: 46, top: 58, apex: 22 },
+  const wins: Array<[number, number, number]> = [
+    [97, 120, 0], [226, 150, 1], [596, 70, 2], [596, 110, 3], [480, 150, 4],
+    [530, 150, 5], [670, 150, 6], [720, 150, 7], [906, 115, 8], [1056, 160, 9],
   ];
-  const wins: Array<[number, number]> = [];
-  for (const t of towers) {
-    for (let r = 0; r < 2; r++) {
-      for (let c = 0; c < 3; c++) {
-        const x = t.x + 10 + c * 14;
-        if (x + 5 <= t.x + t.w - 6) wins.push([x, t.top + 12 + r * 14]);
-      }
-    }
-  }
-  const wallWins: Array<[number, number]> = [[150, 108], [286, 108], [442, 108], [598, 108], [36, 108], [664, 108]];
   return (
-    <svg className="veil-castle" viewBox="0 0 700 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-      <ellipse cx={350} cy={152} rx={400} ry={30} fill="#04040a" />
-      <circle cx={105} cy={30} r={17} fill="#e8e2c8" opacity={0.9} />
-      <circle cx={105} cy={30} r={25} fill="none" stroke="#e8e2c8" strokeWidth={1} opacity={0.25} />
-      <rect x={0} y={100} width={700} height={40} fill="#05050c" />
-      {towers.map((t, i) => (
-        <g key={i}>
-          <rect x={t.x} y={t.top} width={t.w} height={140 - t.top} fill="#05050c" />
-          <polygon points={`${t.x},${t.top} ${t.x + t.w},${t.top} ${t.x + t.w / 2},${t.apex}`} fill="#0a0a17" />
-          <rect x={t.x + t.w / 2 - 1.5} y={t.apex - 8} width={3} height={10} fill="#0a0a17" />
-        </g>
-      ))}
-      {wins.map(([x, y], i) => (
-        <rect key={`w${i}`} x={x} y={y} width={5} height={9} rx={2.5} fill="#f0c75e" opacity={0.8} />
-      ))}
-      {wallWins.map(([x, y], i) => (
-        <rect key={`v${i}`} x={x} y={y} width={5} height={9} rx={2.5} fill="#f0c75e" opacity={0.7} />
+    <svg className="veil-castle" viewBox="0 -40 1200 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <g fill="#070a16">
+        <rect x="80" y="100" width="50" height="120" />
+        <polygon points="70,100 105,40 140,100" />
+        <rect x="200" y="130" width="70" height="90" />
+        <polygon points="195,130 235,80 275,130" />
+        <rect x="420" y="120" width="360" height="100" />
+        <rect x="560" y="40" width="80" height="180" />
+        <polygon points="550,40 600,-30 650,40" />
+        <rect x="440" y="90" width="40" height="40" />
+        <polygon points="434,90 460,48 486,90" />
+        <rect x="720" y="90" width="40" height="40" />
+        <polygon points="714,90 740,48 766,90" />
+        <rect x="880" y="90" width="60" height="130" />
+        <polygon points="872,90 910,20 948,90" />
+        <rect x="1020" y="140" width="80" height="80" />
+        <polygon points="1012,140 1060,90 1108,140" />
+        <rect x="0" y="190" width="1200" height="40" />
+      </g>
+      {wins.map(([x, y, i]) => (
+        <rect
+          key={i}
+          className="w"
+          x={x}
+          y={y}
+          width={8}
+          height={y < 100 ? 16 : 14}
+          style={{ animationDelay: `${-((i * 37) % 30) / 10}s` }}
+        />
       ))}
     </svg>
   );
@@ -102,16 +101,18 @@ function Starfield() {
 }
 
 const CANDLES = [
-  { left: 8, bottom: 300, h: 30, dur: 5.2, delay: 0 },
-  { left: 16, bottom: 420, h: 24, dur: 6.1, delay: 1.2 },
-  { left: 26, bottom: 250, h: 34, dur: 4.7, delay: 0.6 },
-  { left: 38, bottom: 460, h: 22, dur: 5.8, delay: 2.1 },
-  { left: 52, bottom: 280, h: 30, dur: 5.0, delay: 1.0 },
-  { left: 63, bottom: 430, h: 26, dur: 6.4, delay: 0.3 },
-  { left: 74, bottom: 260, h: 32, dur: 4.9, delay: 1.7 },
-  { left: 84, bottom: 400, h: 24, dur: 5.5, delay: 0.9 },
-  { left: 92, bottom: 290, h: 28, dur: 6.0, delay: 2.4 },
-  { left: 45, bottom: 360, h: 20, dur: 5.3, delay: 1.5 },
+  { left: 5, top: 20, s: 0.9, dur: 5.2, delay: 0 },
+  { left: 12, top: 34, s: 1.2, dur: 6.1, delay: -1.2 },
+  { left: 21, top: 9, s: 0.65, dur: 4.7, delay: -0.6 },
+  { left: 28, top: 27, s: 1.0, dur: 5.8, delay: -2.1 },
+  { left: 36, top: 13, s: 0.7, dur: 5.0, delay: -1.0 },
+  { left: 44, top: 32, s: 1.25, dur: 6.4, delay: -0.3 },
+  { left: 53, top: 8, s: 0.6, dur: 4.9, delay: -1.7 },
+  { left: 61, top: 24, s: 0.95, dur: 5.5, delay: -0.9 },
+  { left: 69, top: 37, s: 1.3, dur: 6.0, delay: -2.4 },
+  { left: 77, top: 12, s: 0.75, dur: 5.3, delay: -1.5 },
+  { left: 86, top: 29, s: 1.1, dur: 5.7, delay: -0.5 },
+  { left: 94, top: 17, s: 0.8, dur: 6.2, delay: -1.9 },
 ];
 
 function Candles() {
@@ -121,10 +122,17 @@ function Candles() {
         <div
           key={i}
           className="veil-candle"
-          style={{ left: `${c.left}%`, bottom: c.bottom, animationDuration: `${c.dur}s`, animationDelay: `${c.delay}s` }}
+          style={
+            {
+              left: `${c.left}%`,
+              top: `${c.top}%`,
+              "--s": c.s,
+              animationDuration: `${c.dur}s`,
+              animationDelay: `${c.delay}s`,
+            } as CSSProperties
+          }
         >
-          <span className="vc-flame" style={{ animationDelay: `${c.delay}s` }} />
-          <span className="vc-body" style={{ height: c.h }} />
+          <b />
         </div>
       ))}
     </div>
@@ -169,10 +177,10 @@ export function MegahVeil({ onDone }: { onDone: () => void }) {
       // Kepak sayap + lintasan Snitch melintasi malam.
       gsap.to(".snitch-wing-l", { rotation: -28, transformOrigin: "right center", duration: 0.16, yoyo: true, repeat: -1, ease: "sine.inOut" });
       gsap.to(".snitch-wing-r", { rotation: 28, transformOrigin: "right center", duration: 0.16, yoyo: true, repeat: -1, ease: "sine.inOut" });
-      gsap.set(snitch, { x: "-12vw", y: "12vh" });
+      gsap.set(snitch, { x: "-12vw", y: "22vh" });
       tl.to(snitch, { x: "108vw", duration: 2.3, ease: "power1.inOut" }, 0.15).to(
         snitch,
-        { keyframes: [{ y: "-10vh" }, { y: "12vh" }, { y: "-6vh" }, { y: "8vh" }], duration: 2.3, ease: "sine.inOut" },
+        { keyframes: [{ y: "34vh" }, { y: "20vh" }, { y: "40vh" }, { y: "26vh" }], duration: 2.3, ease: "sine.inOut" },
         0.15
       );
       // Jejak cahaya di ekor Snitch.
