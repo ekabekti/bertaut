@@ -22,6 +22,7 @@ export type AppRow = {
 };
 
 const SEED = [
+  { id: "slaman", name: "SLAman Teknisi", url: "https://slaman-kabprob.vercel.app/login?sso=1", desc: "Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.", cat: "Kinerja", accent: "sage", glyph: "⬢", pin: 1, sso: 1 },
   { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: 1, sso: 1 },
   { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: 1, sso: 1 },
   { id: "ekin", name: "e-Kinerja BKN", url: "https://ekinerja.bkn.go.id", desc: "Perencanaan & penilaian kinerja harian hingga SKP tahunan.", cat: "Kinerja", accent: "clay", glyph: "▲", pin: 1, sso: 0 },
@@ -30,7 +31,6 @@ const SEED = [
   { id: "taspen", name: "Taspen & e-Klim", url: "https://www.taspen.co.id", desc: "Tabungan pensiun, klaim manfaat & layanan kesejahteraan ASN.", cat: "Keuangan", accent: "gold", glyph: "✦", pin: 0, sso: 0 },
   { id: "edabu", name: "e-Dabu BPJS Kesehatan", url: "https://edabu.bpjs-kesehatan.go.id", desc: "Kepesertaan JKN-KIS — cek status, iuran & badan usaha.", cat: "Kesehatan", accent: "teal", glyph: "◎", pin: 0, sso: 0 },
   { id: "lapor", name: "LAPOR! SPAN", url: "https://www.lapor.go.id", desc: "Kanal aspirasi & pengaduan pelayanan publik nasional.", cat: "Administrasi", accent: "clay", glyph: "⬢", pin: 0, sso: 0 },
-  { id: "slaman", name: "SLAman Teknisi", url: "https://slaman-kabprob.vercel.app/login?sso=1", desc: "Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.", cat: "Kinerja", accent: "sage", glyph: "⬢", pin: 0, sso: 1 },
 ];
 
 let client: Client | null = null;
@@ -104,6 +104,51 @@ export async function initDb() {
       { sql: "INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_salt',?)", args: [salt] },
       { sql: "INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_hash',?)", args: [hash] },
     ]);
+  }
+  // Migrasi sekali: SLAman selalu paling atas (pin + urutan baris pertama).
+  // DB lama yang sudah ter-seed tidak ikut SEED baru, jadi perbaiki di sini.
+  const orderFlag = await db.execute("SELECT v FROM meta WHERE k='order_fix_slaman_top'");
+  if (!orderFlag.rows.length) {
+    const seedSl = SEED.find((s) => s.id === "slaman")!;
+    const found = await db.execute("SELECT id FROM apps WHERE id='slaman'");
+    if (!found.rows.length) {
+      await db.execute({
+        sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,sso,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        args: [seedSl.id, seedSl.name, seedSl.url, seedSl.desc, seedSl.cat, seedSl.accent, seedSl.glyph, 1, seedSl.sso, 0, null],
+      });
+    } else {
+      await db.execute("UPDATE apps SET pin=1 WHERE id='slaman'");
+    }
+    const all = await db.execute("SELECT * FROM apps ORDER BY rowid ASC");
+    const rows = all.rows as unknown as Record<string, unknown>[];
+    if (rows.length && String(rows[0].id) !== "slaman") {
+      const first = rows.find((r) => String(r.id) === "slaman")!;
+      const rest = rows.filter((r) => String(r.id) !== "slaman");
+      await db.execute("DELETE FROM apps");
+      for (const r of [first, ...rest]) {
+        await db.execute({
+          sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,sso,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+          args: [String(r.id), String(r.name), String(r.url), String(r.descr ?? ""), String(r.cat ?? "Lainnya"), String(r.accent ?? "gold"), String(r.glyph ?? "◈"), Number(r.pin ?? 0), Number(r.sso ?? 0), Number(r.visits ?? 0), (r.lastOpen as string | null) ?? null],
+        });
+      }
+    }
+    await db.execute("INSERT OR REPLACE INTO meta (k,v) VALUES ('order_fix_slaman_top','1')");
+  }
+  // Migrasi sekali: terapkan sandi dari env HANYA bila diisi eksplisit.
+  // Tidak pernah menimpa sandi yang sudah diganti via Pengaturan, dan tidak
+  // pernah memakai sandi hardcoded.
+  const passFlag = await db.execute("SELECT v FROM meta WHERE k='admin_pass_v2'");
+  if (!passFlag.rows.length) {
+    if (process.env.BERTAUT_ADMIN_PASS) {
+      const salt = randomBytes(16).toString("hex");
+      const hash = scryptSync(String(process.env.BERTAUT_ADMIN_PASS), salt, 64).toString("hex");
+      await db.batch([
+        { sql: "INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_user',?)", args: [process.env.BERTAUT_ADMIN_USER || "admin"] },
+        { sql: "INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_salt',?)", args: [salt] },
+        { sql: "INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_hash',?)", args: [hash] },
+      ]);
+    }
+    await db.execute("INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_pass_v2','1')");
   }
 }
 
