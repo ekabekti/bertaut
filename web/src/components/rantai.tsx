@@ -16,7 +16,7 @@ const CORNERS: Array<[number, number]> = [
   [10, 180],
   [290, 180],
 ];
-const HUB_R = 30;
+const HUB_R = 42;
 const PITCH = 17;
 
 type Link = { x: number; y: number; ang: number; flat: boolean };
@@ -120,12 +120,12 @@ export function ChainOverlay({
         .to(".chain-padlock", { x: 2, duration: 0.04, repeat: 11, yoyo: true, ease: "none" }, 0.2)
         .add(() => {
           if (fx) {
-            shockIn(fx, 150, 100, "#6ff0ff", 80);
-            sparkIn(fx, 150, 100, 12, 55);
+            shockIn(fx, 150, 98, "#6ff0ff", 75);
+            sparkIn(fx, 150, 98, 12, 45);
           }
         }, 0.7)
-        .to(".chain-shackle", { y: -9, duration: 0.16, ease: "power2.out" }, 0.7)
-        .to(".chain-shackle", { rotation: 58, svgOrigin: "166 92", duration: 0.4, ease: "back.out(2)" }, 0.86);
+        .to(".chain-shackle", { y: -6, duration: 0.16, ease: "power2.out" }, 0.7)
+        .to(".chain-shackle", { rotation: 58, svgOrigin: "160 87", duration: 0.4, ease: "back.out(2)" }, 0.86);
       CHAINS.forEach((ch, ci) => {
         const order = [...ch.links].reverse();
         order.forEach((l, i) => {
@@ -201,18 +201,18 @@ export function ChainOverlay({
               <stop offset="1" stopColor="#120c2c" />
             </radialGradient>
           </defs>
-          <circle className="chain-aura" cx={150} cy={95} r={72} fill="url(#arcAura)" opacity={0} />
+          <circle className="chain-aura" cx={150} cy={95} r={88} fill="url(#arcAura)" opacity={0} />
           <g className="chain-ring" opacity={0}>
-            <circle cx={150} cy={95} r={40} fill="none" stroke="#9b7bff" strokeWidth={1.5} strokeDasharray="3 6" />
-            <circle cx={150} cy={95} r={48} fill="none" stroke="#f0c75e" strokeWidth={1} opacity={0.7} />
+            <circle cx={150} cy={95} r={54} fill="none" stroke="#9b7bff" strokeWidth={1.5} strokeDasharray="3 6" />
+            <circle cx={150} cy={95} r={64} fill="none" stroke="#f0c75e" strokeWidth={1.2} opacity={0.75} />
             {RUNES.map((i) => {
               const a = (i * Math.PI) / 6;
               return (
                 <path
                   key={i}
-                  d="M0-4.5L2.6 0 0 4.5-2.6 0Z"
+                  d="M0-6L3.5 0 0 6-3.5 0Z"
                   fill={i % 3 ? "#6ff0ff" : "#f0c75e"}
-                  transform={`translate(${150 + Math.cos(a) * 44} ${95 + Math.sin(a) * 44}) rotate(${i * 30 + 90})`}
+                  transform={`translate(${150 + Math.cos(a) * 59} ${95 + Math.sin(a) * 59}) rotate(${i * 30 + 90})`}
                 />
               );
             })}
@@ -243,18 +243,19 @@ export function ChainOverlay({
           ))}
           <g className="chain-hub">
             <circle cx={150} cy={95} r={HUB_R} fill="url(#arcHub)" stroke="url(#arcGold)" strokeWidth={3} />
-            <circle cx={150} cy={95} r={24} fill="none" stroke="#9b7bff" strokeWidth={1} strokeDasharray="2 4" opacity={0.8} />
+            <circle cx={150} cy={95} r={34} fill="none" stroke="#9b7bff" strokeWidth={1.2} strokeDasharray="3 5" opacity={0.85} />
+            <circle cx={150} cy={95} r={26} fill="none" stroke="#f0c75e" strokeWidth={0.8} strokeDasharray="2 4" opacity={0.6} />
           </g>
           <g className="chain-padlock">
-            <circle className="chain-glow" cx={150} cy={108} r={20} fill="url(#arcAura)" opacity={0.35} />
+            <circle className="chain-glow" cx={150} cy={98} r={14} fill="url(#arcAura)" opacity={0.35} />
             <g className="chain-shackle" fill="none" strokeLinecap="round">
-              <path d="M134 92V78a16 16 0 0 1 32 0V92" stroke="#4a4f73" strokeWidth={10} />
-              <path d="M134 92V78a16 16 0 0 1 32 0V92" stroke="#e6e9f8" strokeWidth={5.5} />
+              <path d="M140 87V77a10 10 0 0 1 20 0V87" stroke="#4a4f73" strokeWidth={6.5} />
+              <path d="M140 87V77a10 10 0 0 1 20 0V87" stroke="#e6e9f8" strokeWidth={3.5} />
             </g>
-            <rect x={121} y={88} width={58} height={46} rx={9} fill="url(#arcGold)" stroke="#5a4217" strokeWidth={2.5} />
-            <rect x={126} y={93} width={48} height={8} rx={4} fill="#fff" opacity={0.22} />
-            <circle cx={150} cy={108} r={5.5} fill="#1b1233" />
-            <path d="M147.5 110h5l1.5 13h-8z" fill="#1b1233" />
+            <rect x={132} y={84} width={36} height={28} rx={6} fill="url(#arcGold)" stroke="#5a4217" strokeWidth={2} />
+            <rect x={135} y={87} width={30} height={4.5} rx={2.2} fill="#fff" opacity={0.22} />
+            <circle cx={150} cy={97} r={3.6} fill="#1b1233" />
+            <path d="M148.5 98h3l1 7.5h-5z" fill="#1b1233" />
           </g>
           <g ref={sparks} />
         </svg>
