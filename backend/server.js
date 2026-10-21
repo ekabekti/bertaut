@@ -293,6 +293,23 @@ async function route(req, res) {
       if (!idToken) throw new Error("Keycloak tidak mengembalikan id_token.");
       const claims = await verifyIdToken(idToken, disc);
       if (saved.nonce && claims.nonce && claims.nonce !== saved.nonce) throw new Error("nonce tidak cocok.");
+
+      // Validasi Whitelist Pengguna SSO Bertaut (ekabekti, NIP Eka, ssouser)
+      const rawAllowed = process.env.SSO_ALLOWED_USERS || "ekabekti,199506032023211009,ssouser";
+      const allowedList = rawAllowed.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+      const checkUsername = (claims.preferred_username || "").toLowerCase();
+      const checkNip = (claims.nip || "").toLowerCase();
+      const emailPrefix = (claims.email || "").split("@")[0].toLowerCase();
+
+      const isAllowed = allowedList.includes(checkUsername) ||
+        allowedList.includes(checkNip) ||
+        allowedList.includes(emailPrefix);
+
+      if (!isAllowed) {
+        throw new Error("Akses ditolak: Akun SSO (" + (claims.preferred_username || claims.email || "Pengguna") + ") tidak memiliki izin akses ke sistem.");
+      }
+
       const roles = extractRoles(claims);
       const canManage = roles.some((r) => SSO_ADMIN_ROLES.includes(r));
       const username = claims.preferred_username || claims.email || claims.name || claims.sub || "sso-user";

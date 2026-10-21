@@ -47,6 +47,24 @@ export async function GET(req: Request) {
     const claims = await verifyIdToken(tj.id_token, disc as Record<string, unknown>);
     const claimNonce = (claims.nonce as string | undefined) || "";
     if (claimNonce && claimNonce !== saved.nonce) throw new Error("nonce tidak cocok.");
+
+    // Validasi Whitelist Pengguna SSO Bertaut (ekabekti, NIP Eka, ssouser)
+    const rawAllowed = process.env.SSO_ALLOWED_USERS || "ekabekti,199506032023211009,ssouser";
+    const allowedList = rawAllowed.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+    const checkUsername = ((claims.preferred_username as string) || "").toLowerCase();
+    const checkNip = ((claims.nip as string) || "").toLowerCase();
+    const emailPrefix = (((claims.email as string) || "").split("@")[0] || "").toLowerCase();
+
+    const isAllowed = allowedList.includes(checkUsername) ||
+      allowedList.includes(checkNip) ||
+      allowedList.includes(emailPrefix);
+
+    if (!isAllowed) {
+      const ident = (claims.preferred_username as string) || (claims.email as string) || "Pengguna";
+      throw new Error(`Akses ditolak: Akun SSO (${ident}) tidak diizinkan mengakses Bertaut.`);
+    }
+
     const roles = extractRoles(claims);
     const canManage = roles.some((r) => SSO_ADMIN_ROLES.includes(r));
     const username =
