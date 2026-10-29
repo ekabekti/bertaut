@@ -20,7 +20,7 @@ type AppItem = {
 
 type Session = { user: string; sso: boolean; roles: string[]; canManage: boolean } | null;
 
-const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Lainnya"];
+const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Infrastruktur", "Lainnya"];
 const SS_TOKEN = "bertaut.token";
 const ACCENTS = ["gold", "teal", "clay", "sage", "ink"];
 const GLYPHS = ["◈", "⬢", "◎", "▲", "✦", "▣"];

@@ -3,7 +3,7 @@ import { randomBytes, scryptSync } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-export const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Lainnya"] as const;
+export const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Infrastruktur", "Lainnya"] as const;
 export const ACCENTS = ["gold", "teal", "clay", "sage", "ink"] as const;
 export const GLYPHS = ["◈", "⬢", "◎", "▲", "✦", "▣"] as const;
 
@@ -23,6 +23,11 @@ export type AppRow = {
 
 const SEED = [
   { id: "slaman", name: "SLAman Teknisi", url: "https://slaman-kabprob.vercel.app/login?sso=1", desc: "Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.", cat: "Kinerja", accent: "sage", glyph: "⬢", pin: 1, sso: 1 },
+  { id: "radmin", name: "Radius Admin (Radmin)", url: "https://radmin.probolinggokab.go.id/login/sso", desc: "Manajemen jaringan Radius, autentikasi voucher & kontrol akses.", cat: "Infrastruktur", accent: "ink", glyph: "◈", pin: 1, sso: 1 },
+  { id: "netmon", name: "SmartNet Monitor (NetMon)", url: "http://103.182.48.234:8082/api/v1/auth/sso/redirect", desc: "Pemantauan topologi jaringan, status router & perangkat switch Pemkab.", cat: "Infrastruktur", accent: "teal", glyph: "⬢", pin: 1, sso: 1 },
+  { id: "mataprabu", name: "Mata Prabu (CCTV & GIS)", url: "http://103.182.48.234:8081/login", desc: "Monitoring CCTV Kab. Probolinggo, GIS spasial & kecerdasan visual jalan raya.", cat: "Infrastruktur", accent: "clay", glyph: "▲", pin: 1, sso: 1 },
+  { id: "waha", name: "WAHA Quick Sender (Ambilkan)", url: "http://10.10.0.7:3005", desc: "Pengirim pesan WhatsApp kilat, broadcast pesan & pengambil berkas.", cat: "Administrasi", accent: "sage", glyph: "◎", pin: 0, sso: 0 },
+  { id: "portofolio", name: "Portofolio Pranata Komputer", url: "https://ekabekti.vercel.app", desc: "Portofolio profesional & rekam jejak inovasi teknologi informasi.", cat: "Kepegawaian", accent: "gold", glyph: "✦", pin: 0, sso: 0 },
   { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: 1, sso: 1 },
   { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: 1, sso: 1 },
   { id: "ekin", name: "e-Kinerja BKN", url: "https://ekinerja.bkn.go.id", desc: "Perencanaan & penilaian kinerja harian hingga SKP tahunan.", cat: "Kinerja", accent: "clay", glyph: "▲", pin: 1, sso: 0 },
@@ -149,6 +154,26 @@ export async function initDb() {
       ]);
     }
     await db.execute("INSERT OR REPLACE INTO meta (k,v) VALUES ('admin_pass_v2','1')");
+  }
+
+  // Migrasi sinkronisasi katalog SEED terbaru (radmin, netmon, mataprabu, waha, portofolio)
+  const seedSyncFlag = await db.execute("SELECT v FROM meta WHERE k='seed_sync_v2'");
+  if (!seedSyncFlag.rows.length) {
+    for (const s of SEED) {
+      const existing = await db.execute({ sql: "SELECT id FROM apps WHERE id=?", args: [s.id] });
+      if (!existing.rows.length) {
+        await db.execute({
+          sql: "INSERT INTO apps (id,name,url,descr,cat,accent,glyph,pin,sso,visits,lastOpen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+          args: [s.id, s.name, s.url, s.desc, s.cat, s.accent, s.glyph, s.pin, s.sso, 0, null],
+        });
+      } else {
+        await db.execute({
+          sql: "UPDATE apps SET url=?, sso=?, descr=?, cat=?, accent=?, glyph=?, pin=? WHERE id=?",
+          args: [s.url, s.sso, s.desc, s.cat, s.accent, s.glyph, s.pin, s.id],
+        });
+      }
+    }
+    await db.execute("INSERT OR REPLACE INTO meta (k,v) VALUES ('seed_sync_v2','1')");
   }
 }
 

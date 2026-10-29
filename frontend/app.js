@@ -7,18 +7,22 @@
 var LS_APPS="bertaut.apps.v1", LS_CREDS="bertaut.creds.v1", LS_VIS="bertaut.visits.v1";
 var SS_SESS="bertaut.session", SS_TOKEN="bertaut.token";
 
-var CATS=["Kepegawaian","Kinerja","Administrasi","Keuangan","Kesehatan","Lainnya"];
+var CATS=["Kepegawaian","Kinerja","Administrasi","Keuangan","Kesehatan","Infrastruktur","Lainnya"];
 var DEFAULTS=[
- {id:"myasn",name:"MyASN BKN",url:"https://myasn.bkn.go.id",desc:"Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.",cat:"Kepegawaian",accent:"gold",glyph:"◈",pin:true,visits:0,lastOpen:null},
- {id:"siasn",name:"SIASN BKN",url:"https://siasn.bkn.go.id",desc:"Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.",cat:"Kepegawaian",accent:"teal",glyph:"⬢",pin:true,visits:0,lastOpen:null},
+ {id:"slaman",name:"SLAman Teknisi",url:"https://slaman-kabprob.vercel.app/login?sso=1",desc:"Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.",cat:"Kinerja",accent:"sage",glyph:"⬢",pin:true,sso:true,visits:0,lastOpen:null},
+ {id:"radmin",name:"Radius Admin (Radmin)",url:"https://radmin.probolinggokab.go.id/login/sso",desc:"Manajemen jaringan Radius, autentikasi voucher & kontrol akses.",cat:"Infrastruktur",accent:"ink",glyph:"◈",pin:true,sso:true,visits:0,lastOpen:null},
+ {id:"netmon",name:"SmartNet Monitor (NetMon)",url:"http://103.182.48.234:8082/api/v1/auth/sso/redirect",desc:"Pemantauan topologi jaringan, status router & perangkat switch Pemkab.",cat:"Infrastruktur",accent:"teal",glyph:"⬢",pin:true,sso:true,visits:0,lastOpen:null},
+ {id:"mataprabu",name:"Mata Prabu (CCTV & GIS)",url:"http://103.182.48.234:8081/login",desc:"Monitoring CCTV Kab. Probolinggo, GIS spasial & kecerdasan visual jalan raya.",cat:"Infrastruktur",accent:"clay",glyph:"▲",pin:true,sso:true,visits:0,lastOpen:null},
+ {id:"waha",name:"WAHA Quick Sender (Ambilkan)",url:"http://10.10.0.7:3005",desc:"Pengirim pesan WhatsApp kilat, broadcast pesan & pengambil berkas.",cat:"Administrasi",accent:"sage",glyph:"◎",pin:false,sso:false,visits:0,lastOpen:null},
+ {id:"portofolio",name:"Portofolio Pranata Komputer",url:"https://ekabekti.vercel.app",desc:"Portofolio profesional & rekam jejak inovasi teknologi informasi.",cat:"Kepegawaian",accent:"gold",glyph:"✦",pin:false,sso:false,visits:0,lastOpen:null},
+ {id:"myasn",name:"MyASN BKN",url:"https://myasn.bkn.go.id",desc:"Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.",cat:"Kepegawaian",accent:"gold",glyph:"◈",pin:true,sso:true,visits:0,lastOpen:null},
+ {id:"siasn",name:"SIASN BKN",url:"https://siasn.bkn.go.id",desc:"Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.",cat:"Kepegawaian",accent:"teal",glyph:"⬢",pin:true,sso:true,visits:0,lastOpen:null},
  {id:"ekin",name:"e-Kinerja BKN",url:"https://ekinerja.bkn.go.id",desc:"Perencanaan & penilaian kinerja harian hingga SKP tahunan.",cat:"Kinerja",accent:"clay",glyph:"▲",pin:true,visits:0,lastOpen:null},
  {id:"srikandi",name:"Srikandi Arsip",url:"https://srikandi.arsip.go.id",desc:"Surat-menyurat dinas & kearsipan elektronik terintegrasi.",cat:"Administrasi",accent:"sage",glyph:"▣",pin:false,visits:0,lastOpen:null},
  {id:"coretax",name:"Coretax DJP",url:"https://coretaxdjp.pajak.go.id",desc:"Administrasi perpajakan — e-Filing, e-Billing & profil Wajib Pajak.",cat:"Keuangan",accent:"ink",glyph:"◎",pin:false,visits:0,lastOpen:null},
  {id:"taspen",name:"Taspen & e-Klim",url:"https://www.taspen.co.id",desc:"Tabungan pensiun, klaim manfaat & layanan kesejahteraan ASN.",cat:"Keuangan",accent:"gold",glyph:"✦",pin:false,visits:0,lastOpen:null},
  {id:"edabu",name:"e-Dabu BPJS Kesehatan",url:"https://edabu.bpjs-kesehatan.go.id",desc:"Kepesertaan JKN-KIS — cek status, iuran & badan usaha.",cat:"Kesehatan",accent:"teal",glyph:"◎",pin:false,visits:0,lastOpen:null},
- {id:"lapor",name:"LAPOR! SPAN",url:"https://www.lapor.go.id",desc:"Kanal aspirasi & pengaduan pelayanan publik nasional.",cat:"Administrasi",accent:"clay",glyph:"⬢",pin:false,visits:0,lastOpen:null},
- {id:"slaman",name:"SLAman Teknisi",url:"https://slaman-kabprob.vercel.app/login?sso=1",desc:"Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.",cat:"Kinerja",accent:"sage",glyph:"⬢",pin:false,sso:true,visits:0,lastOpen:null},
- {id:"radmin",name:"Radius Admin (Radmin)",url:"https://radmin.probolinggokab.go.id/login/sso",desc:"Manajemen jaringan Radius dan kontrol akses.",cat:"Administrasi",accent:"ink",glyph:"◈",pin:true,sso:true,visits:0,lastOpen:null}
+ {id:"lapor",name:"LAPOR! SPAN",url:"https://www.lapor.go.id",desc:"Kanal aspirasi & pengaduan pelayanan publik nasional.",cat:"Administrasi",accent:"clay",glyph:"⬢",pin:false,visits:0,lastOpen:null}
 ];
 
 function $(s,r){return (r||document).querySelector(s)}

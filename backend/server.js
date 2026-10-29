@@ -46,11 +46,17 @@ const ssoStates = new Map(); // state -> { exp, nonce }
 let discoveryCache = null;
 let discoveryAt = 0;
 
-const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Lainnya"];
+const CATS = ["Kepegawaian", "Kinerja", "Administrasi", "Keuangan", "Kesehatan", "Infrastruktur", "Lainnya"];
 const ACCENTS = ["gold", "teal", "clay", "sage", "ink"];
 const GLYPHS = ["◈", "⬢", "◎", "▲", "✦", "▣"];
 
 const SEED = [
+  { id: "slaman", name: "SLAman Teknisi", url: "https://slaman-kabprob.vercel.app/login?sso=1", desc: "Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.", cat: "Kinerja", accent: "sage", glyph: "⬢", pin: true, sso: true },
+  { id: "radmin", name: "Radius Admin (Radmin)", url: "https://radmin.probolinggokab.go.id/login/sso", desc: "Manajemen jaringan Radius, autentikasi voucher & kontrol akses.", cat: "Infrastruktur", accent: "ink", glyph: "◈", pin: true, sso: true },
+  { id: "netmon", name: "SmartNet Monitor (NetMon)", url: "http://103.182.48.234:8082/api/v1/auth/sso/redirect", desc: "Pemantauan topologi jaringan, status router & perangkat switch Pemkab.", cat: "Infrastruktur", accent: "teal", glyph: "⬢", pin: true, sso: true },
+  { id: "mataprabu", name: "Mata Prabu (CCTV & GIS)", url: "http://103.182.48.234:8081/login", desc: "Monitoring CCTV Kab. Probolinggo, GIS spasial & kecerdasan visual jalan raya.", cat: "Infrastruktur", accent: "clay", glyph: "▲", pin: true, sso: true },
+  { id: "waha", name: "WAHA Quick Sender (Ambilkan)", url: "http://10.10.0.7:3005", desc: "Pengirim pesan WhatsApp kilat, broadcast pesan & pengambil berkas.", cat: "Administrasi", accent: "sage", glyph: "◎", pin: false, sso: false },
+  { id: "portofolio", name: "Portofolio Pranata Komputer", url: "https://ekabekti.vercel.app", desc: "Portofolio profesional & rekam jejak inovasi teknologi informasi.", cat: "Kepegawaian", accent: "gold", glyph: "✦", pin: false, sso: false },
   { id: "myasn", name: "MyASN BKN", url: "https://myasn.bkn.go.id", desc: "Layanan mandiri ASN — profil, riwayat jabatan, SK & data pribadi.", cat: "Kepegawaian", accent: "gold", glyph: "◈", pin: true, sso: true },
   { id: "siasn", name: "SIASN BKN", url: "https://siasn.bkn.go.id", desc: "Sistem Informasi ASN terpusat — layanan administrasi kepegawaian.", cat: "Kepegawaian", accent: "teal", glyph: "⬢", pin: true, sso: true },
   { id: "ekin", name: "e-Kinerja BKN", url: "https://ekinerja.bkn.go.id", desc: "Perencanaan & penilaian kinerja harian hingga SKP tahunan.", cat: "Kinerja", accent: "clay", glyph: "▲", pin: true },
@@ -59,8 +65,6 @@ const SEED = [
   { id: "taspen", name: "Taspen & e-Klim", url: "https://www.taspen.co.id", desc: "Tabungan pensiun, klaim manfaat & layanan kesejahteraan ASN.", cat: "Keuangan", accent: "gold", glyph: "✦", pin: false },
   { id: "edabu", name: "e-Dabu BPJS Kesehatan", url: "https://edabu.bpjs-kesehatan.go.id", desc: "Kepesertaan JKN-KIS — cek status, iuran & badan usaha.", cat: "Kesehatan", accent: "teal", glyph: "◎", pin: false },
   { id: "lapor", name: "LAPOR! SPAN", url: "https://www.lapor.go.id", desc: "Kanal aspirasi & pengaduan pelayanan publik nasional.", cat: "Administrasi", accent: "clay", glyph: "⬢", pin: false },
-  { id: "slaman", name: "SLAman Teknisi", url: "https://slaman-kabprob.vercel.app/login?sso=1", desc: "Pemantauan SLA kinerja teknisi — antrean tiket & ketepatan layanan.", cat: "Kinerja", accent: "sage", glyph: "⬢", pin: false, sso: true },
-  { id: "radmin", name: "Radius Admin (Radmin)", url: "https://radmin.probolinggokab.go.id/login/sso", desc: "Manajemen jaringan Radius dan kontrol akses.", cat: "Administrasi", accent: "ink", glyph: "◈", pin: true, sso: true },
 ];
 
 /* ---------- penyimpanan ---------- */
@@ -74,7 +78,24 @@ function loadStore() {
   try {
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     const d = JSON.parse(raw);
-    if (d && d.admin && Array.isArray(d.apps)) return d;
+    if (d && d.admin && Array.isArray(d.apps)) {
+      let changed = false;
+      for (const s of SEED) {
+        const found = d.apps.find((a) => a.id === s.id);
+        if (!found) {
+          d.apps.push(blankApp(s));
+          changed = true;
+        } else {
+          if (found.sso !== !!s.sso || found.url !== s.url) {
+            found.sso = !!s.sso;
+            found.url = s.url;
+            changed = true;
+          }
+        }
+      }
+      if (changed) saveStore(d);
+      return d;
+    }
   } catch (e) { /* belum ada / rusak → seed */ }
   const adminUser = process.env.BERTAUT_ADMIN_USER || "admin";
   const adminPass = process.env.BERTAUT_ADMIN_PASS || "bertaut123";
